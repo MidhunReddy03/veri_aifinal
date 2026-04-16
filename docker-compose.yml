@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  veriai-app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - veriai-data:/app
+    environment:
+      - VERIAI_DB_PATH=/app/veriai.db
+      - VERIAI_LOG_LEVEL=INFO
+
+volumes:
+  veriai-data:

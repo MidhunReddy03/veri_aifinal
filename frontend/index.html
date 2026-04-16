@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VeriAI — AI Trust Auditor Platform</title>
+    <meta name="description" content="VeriAI detects, scores, explains, and corrects bias and hallucinations in AI systems. Comprehensive AI governance and trust scoring." />
+    <link rel="stylesheet" href="src/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Ambient background glow -->
+    <div class="ambient-glow"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <circle cx="14" cy="14" r="12" stroke="url(#brandGrad)" stroke-width="2.5" fill="none"/>
+                        <path d="M9 14l3 3 7-7" stroke="url(#brandGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <defs><linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+                    </svg>
+                </div>
+                <span class="brand-name">VeriAI</span>
+                <span class="brand-tag">v1.0</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#/dashboard" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="#/audit" class="nav-item" data-page="audit" id="nav-audit">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">Run Audit</span>
+                </a>
+                <a href="#/reports" class="nav-item" data-page="reports" id="nav-reports">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Reports</span>
+                </a>
+                <a href="#/feedback" class="nav-item" data-page="feedback" id="nav-feedback">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">Feedback</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status">
+                    <span class="status-dot online"></span>
+                    <span class="status-text">System Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main content area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <h2 class="page-title" id="page-title">Dashboard</h2>
+                </div>
+                <div class="top-bar-right">
+                    <span class="top-bar-badge">AI Trust Auditor</span>
+                    <div class="top-bar-avatar">VA</div>
+                </div>
+            </header>
+
+            <div class="content-area" id="app-root">
+                <!-- Pages injected here by main.js -->
+            </div>
+        </main>
+    </div>
+
+    <script src="src/main.js" type="module"></script>
+</body>
+</html>
