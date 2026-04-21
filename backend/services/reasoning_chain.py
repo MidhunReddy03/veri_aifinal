@@ -16,7 +16,7 @@ import numpy as np
 from typing import Dict, Any, List
 
 from ..config import DEFAULT_NUM_CLUSTERS
-from .fairness_service import compute_bias_score
+from .bias_service import compute_bias_score
 from .truth_service import verify_claims
 from .cluster_service import cluster_bias_analysis
 from .distribution_service import compute_distribution_report

@@ -7,7 +7,7 @@ from typing import Optional, List
 import json
 import numpy as np
 
-from ..services.fairness_service import compute_bias_score
+from ..services.bias_service import compute_bias_score
 
 router = APIRouter()
 

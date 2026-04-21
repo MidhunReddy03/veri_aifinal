@@ -1,78 +1,53 @@
-'''backend/services/fairness_service.py'''
-"""Bias detection utilities.
-Provides:
-- Demographic parity
-- Equalized odds
-- Permutation‑importance based feature importance (SHAP‑like)
-All functions operate on NumPy arrays for speed and avoid heavy dependencies.
+"""Fairness detection utilities.
+Provides Demographic Parity and Equal Opportunity metrics.
 """
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from sklearn.inspection import permutation_importance
-from sklearn.linear_model import LogisticRegression
-from typing import List, Tuple, Dict
-
+from .training_service import load_model, get_live_model, preprocess_data, load_data
 
 def demographic_parity(y_pred: np.ndarray, protected: np.ndarray) -> float:
-    """Calculate absolute difference in positive prediction rates between
-    protected groups (binary protected attribute).
-    Returns a value in [0, 1] where 0 means perfect parity.
-    """
-    # Assume protected values are 0/1
-    group0_rate = y_pred[protected == 0].mean()
-    group1_rate = y_pred[protected == 1].mean()
+    """Calculate absolute difference in positive prediction rates between protected groups."""
+    group0_rate = y_pred[protected == 0].mean() if (protected == 0).sum() > 0 else 0.0
+    group1_rate = y_pred[protected == 1].mean() if (protected == 1).sum() > 0 else 0.0
     return abs(group0_rate - group1_rate)
 
-
-def equalized_odds(y_true: np.ndarray, y_pred: np.ndarray, protected: np.ndarray) -> float:
-    """Calculate the maximum absolute difference in true‑positive rates
-    across protected groups. Returns a value in [0, 1].
-    """
+def equal_opportunity(y_true: np.ndarray, y_pred: np.ndarray, protected: np.ndarray) -> float:
+    """Calculate the absolute difference in true positive rates (Recall) across protected groups."""
     def tpr(mask):
+        if mask.sum() == 0:
+            return 0.0
+        # confusion_matrix with labels=[0,1] ensures a 2x2 matrix
         tn, fp, fn, tp = confusion_matrix(y_true[mask], y_pred[mask], labels=[0, 1]).ravel()
         return tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    
     tpr0 = tpr(protected == 0)
     tpr1 = tpr(protected == 1)
     return abs(tpr0 - tpr1)
 
-
-def feature_importance(X: np.ndarray, y: np.ndarray, feature_names: List[str]) -> Dict[str, float]:
-    """Train a simple logistic regression model and compute permutation
-    importance for each feature. Returns a dict mapping feature name → importance.
-    The importance values are normalised to sum to 1.
-    """
-    model = LogisticRegression(max_iter=200, solver="liblinear")
-    model.fit(X, y)
-    result = permutation_importance(model, X, y, n_repeats=5, random_state=0)
-    importances = result.importances_mean
-    total = importances.sum()
-    if total == 0:
-        normalized = np.zeros_like(importances)
-    else:
-        normalized = importances / total
-    return {name: float(val) for name, val in zip(feature_names, normalized)}
-
-
-def compute_bias_score(
-    X: np.ndarray,
-    y: np.ndarray,
-    protected_idx: int,
-    feature_names: List[str],
-) -> Tuple[float, Dict[str, float], float, float]:
-    """High‑level helper that returns:
-    - overall bias score (0‑1, lower is better)
-    - feature importance dict
-    - demographic parity value
-    - equalized odds value
-    The overall bias score is the average of the two fairness metrics.
-    """
-    protected = X[:, protected_idx]
-    # Simple classifier for predictions (logistic regression)
-    clf = LogisticRegression(max_iter=200, solver="liblinear")
-    clf.fit(X, y)
-    y_pred = clf.predict(X)
-    dp = demographic_parity(y_pred, protected)
-    eo = equalized_odds(y, y_pred, protected)
-    bias_score = (dp + eo) / 2.0  # 0 = perfect, 1 = worst
-    feat_imp = feature_importance(X, y, feature_names)
-    return bias_score, feat_imp, dp, eo
+def compute_real_fairness() -> dict:
+    """Compute Demographic Parity and Equal Opportunity metrics on the dataset using the deployed model."""
+    try:
+        model, scaler = get_live_model()
+        df = load_data()
+        
+        if "sex" not in df.columns:
+            return {"error": "Required protected attribute 'sex' not found."}
+            
+        X_encoded, y_true, _ = preprocess_data(df)
+        X_scaled = scaler.transform(X_encoded)
+        y_pred = model.predict(X_scaled)
+        
+        # Male = 0, Female = 1 for disparity calculation masking
+        protected = np.where(df['sex'].str.strip() == "Female", 1, 0)
+        
+        dp = demographic_parity(y_pred, protected)
+        eq_opp = equal_opportunity(y_true, y_pred, protected)
+        
+        return {
+            "demographic_parity": float(dp),
+            "equal_opportunity": float(eq_opp)
+        }
+    except FileNotFoundError:
+        return {"error": "Model or dataset not found. Please train the model first."}
+    except Exception as e:
+        return {"error": str(e)}
