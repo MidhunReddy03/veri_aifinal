@@ -1,8 +1,9 @@
 """Trust‑score calculation.
-Uses the weighted formula defined in backend.config.TRUST_WEIGHTS.
+Uses the weighted formula defined in backend.config.
+Now reads from get_active_weights() so runtime changes take effect immediately.
 """
 from typing import Dict
-from ..config import TRUST_WEIGHTS
+from ..config import get_active_weights
 
 
 def weighted_score(features: list, weights: list) -> float:
@@ -16,27 +17,30 @@ def compute_trust_score(
     cluster: float,
     distribution: float,
 ) -> Dict[str, float]:
-    """Calculate the weighted trust score using the weighted_score core ML Addon."""
+    """Calculate the weighted trust score using the weighted_score core ML Addon.
+    Reads weights from get_active_weights() so API-configured weights are respected.
+    """
+    active_weights = get_active_weights()
     bias_contrib = (1 - bias) 
     
     # Order must match between features and weights arrays
     features = [truth, bias_contrib, confidence, cluster, distribution]
     weights_array = [
-        TRUST_WEIGHTS["truth"], 
-        TRUST_WEIGHTS["bias"], 
-        TRUST_WEIGHTS["confidence"], 
-        TRUST_WEIGHTS["cluster"], 
-        TRUST_WEIGHTS["distribution"]
+        active_weights["truth"], 
+        active_weights["bias"], 
+        active_weights["confidence"], 
+        active_weights["cluster"], 
+        active_weights["distribution"]
     ]
     
     trust_score = weighted_score(features, weights_array)
     
     components = {
-        "truth": truth * TRUST_WEIGHTS["truth"],
-        "bias": bias_contrib * TRUST_WEIGHTS["bias"],
-        "confidence": confidence * TRUST_WEIGHTS["confidence"],
-        "cluster": cluster * TRUST_WEIGHTS["cluster"],
-        "distribution": distribution * TRUST_WEIGHTS["distribution"],
+        "truth": truth * active_weights["truth"],
+        "bias": bias_contrib * active_weights["bias"],
+        "confidence": confidence * active_weights["confidence"],
+        "cluster": cluster * active_weights["cluster"],
+        "distribution": distribution * active_weights["distribution"],
     }
     
     trust_score = max(0.0, min(1.0, trust_score))

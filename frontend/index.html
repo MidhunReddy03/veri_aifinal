@@ -16,17 +16,19 @@
     <div class="app-layout">
         <!-- Sidebar Navigation -->
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <div class="brand-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                        <circle cx="14" cy="14" r="12" stroke="url(#brandGrad)" stroke-width="2.5" fill="none"/>
-                        <path d="M9 14l3 3 7-7" stroke="url(#brandGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <defs><linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
-                    </svg>
+            <a href="#/" style="text-decoration: none; color: inherit;">
+                <div class="sidebar-brand">
+                    <div class="brand-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <circle cx="14" cy="14" r="12" stroke="url(#brandGrad)" stroke-width="2.5" fill="none"/>
+                            <path d="M9 14l3 3 7-7" stroke="url(#brandGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs><linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+                        </svg>
+                    </div>
+                    <span class="brand-name">VeriAI</span>
+                    <span class="brand-tag">v2.0</span>
                 </div>
-                <span class="brand-name">VeriAI</span>
-                <span class="brand-tag">v1.0</span>
-            </div>
+            </a>
 
             <nav class="sidebar-nav">
                 <a href="#/dashboard" class="nav-item active" data-page="dashboard" id="nav-dashboard">
@@ -40,6 +42,14 @@
                 <a href="#/reports" class="nav-item" data-page="reports" id="nav-reports">
                     <span class="nav-icon">📋</span>
                     <span class="nav-label">Reports</span>
+                </a>
+                <a href="#/review" class="nav-item" data-page="review" id="nav-review">
+                    <span class="nav-icon">👁️</span>
+                    <span class="nav-label">Review Queue</span>
+                </a>
+                <a href="#/settings" class="nav-item" data-page="settings" id="nav-settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
                 </a>
                 <a href="#/feedback" class="nav-item" data-page="feedback" id="nav-feedback">
                     <span class="nav-icon">💬</span>

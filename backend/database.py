@@ -54,6 +54,18 @@ SCHEMA = {
             source TEXT
         );
     """,
+    "review_queue": """
+        CREATE TABLE IF NOT EXISTS review_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audit_id TEXT NOT NULL,
+            trust_score REAL,
+            input_preview TEXT,
+            status TEXT DEFAULT 'pending',
+            reviewer_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at TIMESTAMP
+        );
+    """,
 }
 
 async def init_db() -> None:
@@ -102,3 +114,35 @@ async def get_audit(audit_id: str):
 async def list_audits(limit: int = 20):
     rows = await fetch_all("SELECT id, input, trust_score, created_at FROM audits ORDER BY created_at DESC LIMIT ?", (limit,))
     return rows
+
+# Review queue helpers
+async def insert_review(audit_id: str, trust_score: float, input_preview: str) -> None:
+    await execute(
+        "INSERT INTO review_queue (audit_id, trust_score, input_preview) VALUES (?, ?, ?)",
+        (audit_id, trust_score, input_preview[:200]),
+    )
+
+async def get_pending_reviews(limit: int = 50):
+    rows = await fetch_all(
+        "SELECT id, audit_id, trust_score, input_preview, status, reviewer_notes, created_at, reviewed_at "
+        "FROM review_queue ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    )
+    return rows
+
+async def update_review_status(audit_id: str, status: str, notes: str = "") -> None:
+    await execute(
+        "UPDATE review_queue SET status = ?, reviewer_notes = ?, reviewed_at = CURRENT_TIMESTAMP WHERE audit_id = ?",
+        (status, notes, audit_id),
+    )
+
+async def get_review_stats():
+    pending = await fetch_one("SELECT COUNT(*) FROM review_queue WHERE status = 'pending'")
+    approved = await fetch_one("SELECT COUNT(*) FROM review_queue WHERE status = 'approved'")
+    rejected = await fetch_one("SELECT COUNT(*) FROM review_queue WHERE status = 'rejected'")
+    return {
+        "pending": pending[0] if pending else 0,
+        "approved": approved[0] if approved else 0,
+        "rejected": rejected[0] if rejected else 0,
+    }
+

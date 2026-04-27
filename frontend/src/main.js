@@ -1,7 +1,10 @@
+import { renderHomePage } from './pages/home.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderAuditPage } from './pages/audit.js';
 import { renderReportsPage } from './pages/reports.js';
 import { renderFeedbackPage } from './pages/feedback.js';
+import { renderSettingsPage } from './pages/settings.js';
+import { renderReviewPage } from './pages/review.js';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -35,14 +38,17 @@ export const apiClient = {
 
 // Vanilla SPA Router
 const routes = {
+    '/': { render: renderHomePage, title: 'Home - VeriAI' },
     '/dashboard': { render: renderDashboard, title: 'Dashboard' },
     '/audit': { render: renderAuditPage, title: 'Run Audit' },
     '/reports': { render: renderReportsPage, title: 'Audit Reports' },
     '/feedback': { render: renderFeedbackPage, title: 'Feedback' },
+    '/settings': { render: renderSettingsPage, title: 'Settings' },
+    '/review': { render: renderReviewPage, title: 'Review Queue' },
 };
 
 async function router() {
-    let hash = window.location.hash.slice(1) || '/dashboard';
+    let hash = window.location.hash.slice(1) || '/';
     
     // Check if route has an ID parameter (e.g., /reports/demo-001)
     let id = null;
@@ -56,8 +62,23 @@ async function router() {
     const route = routes[baseRoute];
     const appRoot = document.getElementById('app-root');
     const pageTitle = document.getElementById('page-title');
+    const sidebar = document.getElementById('sidebar');
+    const topBar = document.querySelector('.top-bar');
 
     if (route) {
+        // Toggle Layout for Landing Page
+        if (baseRoute === '/') {
+            if (sidebar) sidebar.style.display = 'none';
+            if (topBar) topBar.style.display = 'none';
+            document.querySelector('.main-content').style.marginLeft = '0';
+            document.querySelector('.main-content').style.padding = '0 2rem';
+        } else {
+            if (sidebar) sidebar.style.display = 'flex';
+            if (topBar) topBar.style.display = 'flex';
+            document.querySelector('.main-content').style.marginLeft = 'var(--sidebar-width)';
+            document.querySelector('.main-content').style.padding = '0';
+        }
+
         // Update UI
         pageTitle.textContent = route.title;
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -66,7 +87,18 @@ async function router() {
         
         // Render Route
         appRoot.innerHTML = '<div class="loading-overlay"><div class="loading-spinner"></div><div>Loading...</div></div>';
-        await route.render(appRoot, apiClient, id);
+        try {
+            await route.render(appRoot, apiClient, id);
+        } catch (err) {
+            console.error('Route render error:', err);
+            appRoot.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">❌</div>
+                    <h3 class="empty-title">Render Error</h3>
+                    <div class="empty-desc" style="font-family: var(--font-mono); color: var(--accent-red);">${err.message}</div>
+                </div>
+            `;
+        }
     } else {
         appRoot.innerHTML = `
             <div class="empty-state">
@@ -78,5 +110,9 @@ async function router() {
 }
 
 // Init
+console.log('[VeriAI] Module loaded. Hash:', window.location.hash);
 window.addEventListener('hashchange', router);
-window.addEventListener('DOMContentLoaded', router);
+// For ES modules (deferred), DOMContentLoaded may have already fired.
+// Call router() immediately since the DOM is guaranteed ready when a
+// type="module" script executes.
+router().catch(err => console.error('[VeriAI] Router fatal error:', err));

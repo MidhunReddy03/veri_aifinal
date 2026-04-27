@@ -1,6 +1,8 @@
-"""Full audit endpoint.
-Accepts text / dataset input, runs the complete reasoning chain,
-persists the result, and returns the comprehensive audit report.
+"""Full audit endpoint — v2.0.
+Accepts text / dataset input, runs the complete reasoning chain with
+parallel processing and depth control, persists the result, and
+returns the comprehensive audit report.
+Automatically queues low-trust results for human review.
 """
 from fastapi import APIRouter
 from ..models import AuditRequest
@@ -13,13 +15,14 @@ router = APIRouter()
 
 @router.post("/audit")
 async def audit(request: AuditRequest):
-    """Run the full 7‑step audit pipeline."""
+    """Run the full multi-step audit pipeline with parallel processing."""
     # Invalidate truth cache to pick up any new KB entries
     invalidate_cache()
 
-    result = run_audit(
+    result = await run_audit(
         input_text=request.input_text,
         num_clusters=request.num_clusters,
+        depth=request.depth or "standard",
     )
 
     # Persist to SQLite
@@ -31,5 +34,13 @@ async def audit(request: AuditRequest):
         trust_score=result["trust_score"],
         corrected=result.get("corrections", ""),
     )
+
+    # If flagged for human review, add to review queue
+    if result.get("requires_human_review"):
+        await db.insert_review(
+            audit_id=result["audit_id"],
+            trust_score=result["trust_score"],
+            input_preview=result["input_text"][:200],
+        )
 
     return result

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from .routes import audit, feedback, dashboard, bias_scan, truth_check, correction, report, upload, ml
+from .routes import audit, feedback, dashboard, bias_scan, truth_check, correction, report, upload, ml, settings, review
 from .database import init_db
 from .seed_data import seed_database
 
@@ -50,6 +50,8 @@ app.include_router(upload.router, prefix="/api", tags=["Upload"])
 app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
 app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 app.include_router(ml.router, prefix="/api", tags=["ML"])
+app.include_router(settings.router, prefix="/api", tags=["Settings"])
+app.include_router(review.router, prefix="/api", tags=["Review"])
 
 # ----- Serve frontend static files -----
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"

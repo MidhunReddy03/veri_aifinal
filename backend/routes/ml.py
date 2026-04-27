@@ -53,9 +53,11 @@ async def fairness_endpoint():
     return result
 
 @router.get("/explain")
-async def explain_endpoint(index: int = 0):
-    """Return SHAP explanation for a given instance."""
-    result = generate_shap_explanation(index)
+async def explain_endpoint(index: int = 0, method: str = "linear"):
+    """Return SHAP explanation for a given instance.
+    Methods: linear (default), coefficient (fastest), permutation (slow).
+    """
+    result = generate_shap_explanation(index, method=method)
     if result.get("status") == "error":
         raise HTTPException(status_code=500, detail=result.get("message"))
     return result

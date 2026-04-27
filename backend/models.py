@@ -19,6 +19,7 @@ class AuditRequest(BaseModel):
         None, description="Names of protected attributes for bias analysis"
     )
     num_clusters: Optional[int] = Field(4, description="KMeans clusters for analysis")
+    depth: Optional[str] = Field("standard", description="Audit depth: 'fast', 'standard', or 'thorough'")
 
 class BiasReport(BaseModel):
     bias_score: float = Field(..., ge=0.0, le=1.0, description="Overall bias score (0‑1)")

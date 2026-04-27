@@ -26,6 +26,39 @@ TRUST_WEIGHTS = {
     "distribution": 0.10,
 }
 
+# Mutable runtime weights — API can update these without restarting
+CUSTOM_WEIGHTS: dict = {}
+
+# Industry presets for trust formula configurability
+INDUSTRY_PRESETS = {
+    "general": {
+        "label": "General Purpose",
+        "description": "Balanced weights for general AI auditing",
+        "weights": {"truth": 0.35, "bias": 0.30, "confidence": 0.15, "cluster": 0.10, "distribution": 0.10},
+    },
+    "healthcare": {
+        "label": "Healthcare / Medical",
+        "description": "Heavy truth weighting — medical claims must be factually grounded",
+        "weights": {"truth": 0.45, "bias": 0.25, "confidence": 0.15, "cluster": 0.10, "distribution": 0.05},
+    },
+    "finance": {
+        "label": "Finance / Banking",
+        "description": "Bias-heavy — loan and credit scoring must be demographically fair",
+        "weights": {"truth": 0.30, "bias": 0.35, "confidence": 0.15, "cluster": 0.10, "distribution": 0.10},
+    },
+    "hiring": {
+        "label": "HR / Hiring",
+        "description": "Maximum bias sensitivity — hiring decisions must not discriminate",
+        "weights": {"truth": 0.25, "bias": 0.40, "confidence": 0.15, "cluster": 0.10, "distribution": 0.10},
+    },
+}
+
+def get_active_weights() -> dict:
+    """Return the currently active trust weights.
+    Uses CUSTOM_WEIGHTS if set, otherwise falls back to TRUST_WEIGHTS.
+    """
+    return CUSTOM_WEIGHTS if CUSTOM_WEIGHTS else TRUST_WEIGHTS
+
 # ---------------------------------------------------------------------------
 # Miscellaneous settings
 # ---------------------------------------------------------------------------
@@ -37,6 +70,12 @@ DEFAULT_NUM_CLUSTERS = 4
 
 # Logging level – can be overridden via VERIAI_LOG_LEVEL env var
 LOG_LEVEL = os.getenv("VERIAI_LOG_LEVEL", "INFO")
+
+# ---------------------------------------------------------------------------
+# Human-in-the-loop review threshold
+# ---------------------------------------------------------------------------
+# Audits with trust score below this threshold are flagged for human review
+HUMAN_REVIEW_THRESHOLD = float(os.getenv("VERIAI_REVIEW_THRESHOLD", "0.60"))
 
 # ---------------------------------------------------------------------------
 # Helper utilities (optional)
