@@ -64,5 +64,11 @@ async def health_check():
     return {"status": "ok", "version": "1.0.0"}
 
 
+import os
+
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "backend.main:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
