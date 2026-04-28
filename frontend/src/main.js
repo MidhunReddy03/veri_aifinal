@@ -1,10 +1,10 @@
-import { renderHomePage } from './pages/home.js';
-import { renderDashboard } from './pages/dashboard.js';
-import { renderAuditPage } from './pages/audit.js';
-import { renderReportsPage } from './pages/reports.js';
-import { renderFeedbackPage } from './pages/feedback.js';
-import { renderSettingsPage } from './pages/settings.js';
-import { renderReviewPage } from './pages/review.js';
+import { renderLogin } from './pages/login.js?v=5';
+import { renderDashboard } from './pages/dashboard.js?v=5';
+import { renderAuditPage } from './pages/audit.js?v=5';
+import { renderReportsPage } from './pages/reports.js?v=5';
+import { renderFeedbackPage } from './pages/feedback.js?v=5';
+import { renderSettingsPage } from './pages/settings.js?v=5';
+import { renderReviewPage } from './pages/review.js?v=5';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -38,7 +38,7 @@ export const apiClient = {
 
 // Vanilla SPA Router
 const routes = {
-    '/': { render: renderHomePage, title: 'Home - VeriAI' },
+    '/': { render: renderLogin, title: 'Login - VeriAI' },
     '/dashboard': { render: renderDashboard, title: 'Dashboard' },
     '/audit': { render: renderAuditPage, title: 'Run Audit' },
     '/reports': { render: renderReportsPage, title: 'Audit Reports' },
@@ -66,17 +66,20 @@ async function router() {
     const topBar = document.querySelector('.top-bar');
 
     if (route) {
+        const ambientGlow = document.querySelector('.ambient-glow');
         // Toggle Layout for Landing Page
         if (baseRoute === '/') {
             if (sidebar) sidebar.style.display = 'none';
             if (topBar) topBar.style.display = 'none';
+            if (ambientGlow) ambientGlow.style.display = 'none';
             document.querySelector('.main-content').style.marginLeft = '0';
-            document.querySelector('.main-content').style.padding = '0 2rem';
+            document.querySelector('.content-area').style.padding = '0';
         } else {
             if (sidebar) sidebar.style.display = 'flex';
             if (topBar) topBar.style.display = 'flex';
+            if (ambientGlow) ambientGlow.style.display = 'block';
             document.querySelector('.main-content').style.marginLeft = 'var(--sidebar-width)';
-            document.querySelector('.main-content').style.padding = '0';
+            document.querySelector('.content-area').style.padding = '2rem';
         }
 
         // Update UI

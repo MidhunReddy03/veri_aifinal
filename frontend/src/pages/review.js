@@ -1,244 +1,199 @@
 export async function renderReviewPage(rootEl, api) {
-    const [queue, stats] = await Promise.all([
-        api.get('/review/queue'),
-        api.get('/review/stats'),
-    ]);
+    const queue = await api.get('/review/queue');
+    const items = queue || [];
 
-    const pendingItems = queue ? queue.filter(r => r.status === 'pending') : [];
-    const allItems = queue || [];
+    // Enrich items with full data from recent audits
+    const recent = await api.get('/dashboard/recent');
+    const recentMap = {};
+    if (recent) recent.forEach(r => { recentMap[r.audit_id] = r; });
+    items.forEach(item => {
+        const full = recentMap[item.audit_id];
+        if (full) { item.full_input = full.input; }
+    });
+
+    // Fetch review stats
+    const reviewStats = await api.get('/review/stats');
+    const totalReviewed = reviewStats ? ((reviewStats.approved || 0) + (reviewStats.rejected || 0) + (reviewStats.escalated || 0)) : 0;
 
     rootEl.innerHTML = `
-        <!-- Review Stats Cards -->
-        <div class="review-stats-grid">
-            <div class="review-stat-card">
-                <div class="review-stat-number" style="color: var(--accent-amber);">${stats ? stats.pending : 0}</div>
-                <div class="review-stat-label">Pending Review</div>
-            </div>
-            <div class="review-stat-card">
-                <div class="review-stat-number" style="color: var(--accent-green);">${stats ? stats.approved : 0}</div>
-                <div class="review-stat-label">Approved</div>
-            </div>
-            <div class="review-stat-card">
-                <div class="review-stat-number" style="color: var(--accent-red);">${stats ? stats.rejected : 0}</div>
-                <div class="review-stat-label">Rejected</div>
-            </div>
+        <div style="display:flex; gap:2rem; border-bottom:1px solid var(--border-glass); margin-bottom:1.5rem; padding-bottom:0.75rem;">
+            <a href="#/dashboard" style="color:var(--text-secondary); text-decoration:none; font-size:0.88rem;">Dashboard</a>
+            <a href="#/review" style="color:var(--accent-blue); text-decoration:none; font-size:0.88rem; font-weight:600; border-bottom:2px solid var(--accent-blue); padding-bottom:0.75rem; margin-bottom:-0.75rem;">Review Queue</a>
+            <a href="#/settings" style="color:var(--text-secondary); text-decoration:none; font-size:0.88rem;">Settings</a>
         </div>
 
-        <!-- Info Banner -->
-        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); padding: 1rem 1.25rem; border-radius: var(--radius-md); display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-            <svg width="20" height="20" fill="none" stroke="var(--accent-amber)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.003c-.77-1.333-2.694-1.333-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z"/></svg>
-            <p style="margin:0; font-size:0.85rem; color:var(--text-primary); line-height:1.4;">
-                <strong style="color: var(--accent-amber);">Human-in-the-Loop:</strong> 
-                Audit results with trust scores below <strong>60%</strong> are automatically flagged for human review. 
-                Approve, reject, or escalate each result before it can be used downstream.
-            </p>
+        <!-- Review Stats Bar -->
+        <div class="stats-grid" style="margin-bottom:1.5rem;">
+            <div class="stat-card purple"><div class="stat-label">Queue Size</div><div class="stat-value purple">${items.length}</div></div>
+            <div class="stat-card cyan"><div class="stat-label">Total Reviewed</div><div class="stat-value cyan">${totalReviewed}</div></div>
+            <div class="stat-card amber"><div class="stat-label">Approved</div><div class="stat-value amber">${reviewStats?.approved || 0}</div></div>
+            <div class="stat-card green"><div class="stat-label">Avg Trust</div><div class="stat-value green">${items.length > 0 ? (items.reduce((s,i) => s + (i.trust_score||0), 0) / items.length * 100).toFixed(0) + '%' : 'N/A'}</div></div>
         </div>
 
-        <!-- Review Queue Table -->
-        <div class="card glass-card" style="box-shadow: var(--shadow-md); overflow: hidden;">
-            <div class="card-header" style="border-bottom: 1px solid var(--border-glass); padding-bottom: 1rem;">
-                <h3 class="card-title" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <svg width="20" height="20" fill="none" stroke="var(--accent-purple)" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    Review Queue
-                </h3>
-                <span class="badge ${pendingItems.length > 0 ? 'badge-amber' : 'badge-green'}">${pendingItems.length} pending</span>
+        <div class="grid" style="grid-template-columns:320px 1fr; gap:2rem; align-items:start;">
+            <div class="card glass-card" style="padding:1.25rem 1rem;">
+                <h3 class="card-title" style="margin-left:0.5rem; margin-bottom:0.75rem;">Flagged Items Queue</h3>
+                <div id="queue-list" style="display:flex; flex-direction:column; gap:0.5rem; max-height:500px; overflow-y:auto;">
+                    ${items.length > 0 ? items.map((item, i) => {
+                        const severity = item.trust_score < 0.4 ? 'High' : (item.trust_score < 0.6 ? 'Medium' : 'Low');
+                        const sevColor = severity === 'High' ? 'var(--accent-red)' : (severity === 'Medium' ? 'var(--accent-amber)' : 'var(--accent-emerald)');
+                        const active = i === 0 ? 'background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3);' : 'background:rgba(255,255,255,0.03); border:1px solid transparent;';
+                        const statusBadge = item.status === 'approved' ? '<span style="color:var(--accent-emerald); font-size:0.68rem;">✓ Approved</span>' : 
+                                           item.status === 'rejected' ? '<span style="color:var(--accent-red); font-size:0.68rem;">✗ Rejected</span>' : '';
+                        return '<div class="queue-item" data-index="' + i + '" style="' + active + ' border-radius:var(--radius-md); padding:0.85rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.2s;"><div><div style="font-weight:600; font-size:0.85rem;">#' + (item.id || item.audit_id || i) + '</div><div style="font-size:0.72rem; color:var(--text-muted);">' + severity + ' Severity</div>' + statusBadge + '</div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;"><div style="background:' + sevColor + '; color:white; font-size:0.68rem; font-weight:600; padding:2px 8px; border-radius:4px;">' + severity + '</div><div style="font-size:0.68rem; color:var(--text-muted);">' + (item.trust_score * 100).toFixed(0) + '% trust</div></div></div>';
+                    }).join('') : '<div style="color:var(--text-muted); text-align:center; padding:2rem;">✅ No items pending review</div>'}
+                </div>
             </div>
-            <div class="table-wrap">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid var(--border-glass); text-align:left; color:var(--text-muted); background: rgba(255,255,255,0.02);">
-                            <th style="padding: 12px 16px;">Audit ID</th>
-                            <th style="padding: 12px 16px;">Trust Score</th>
-                            <th style="padding: 12px 16px;">Input Preview</th>
-                            <th style="padding: 12px 16px;">Status</th>
-                            <th style="padding: 12px 16px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="review-table-body">
-                        ${allItems.length > 0 ? allItems.map(r => renderReviewRow(r)).join('') : `
-                            <tr><td colspan="5" style="text-align:center; padding: 40px; color:var(--text-muted);">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div>
-                                No items in the review queue. All audits are above the trust threshold.
-                            </td></tr>
-                        `}
-                    </tbody>
-                </table>
+
+            <div class="card glass-card" style="padding:2rem;" id="review-detail">
+                ${items.length > 0 ? buildDetailPanel(items[0]) : '<div class="empty-state"><div class="empty-icon">✅</div><h3 class="empty-title">All Clear</h3><div class="empty-desc">No items require human review at this time.</div></div>'}
             </div>
         </div>
     `;
 
-    // Bind action buttons
-    bindReviewActions(rootEl, api);
+    // Queue item click handlers
+    document.querySelectorAll('.queue-item').forEach(el => {
+        el.addEventListener('click', () => {
+            document.querySelectorAll('.queue-item').forEach(q => { q.style.background='rgba(255,255,255,0.03)'; q.style.border='1px solid transparent'; });
+            el.style.background='rgba(59,130,246,0.15)'; el.style.border='1px solid rgba(59,130,246,0.3)';
+            const idx = parseInt(el.dataset.index);
+            if (items[idx]) {
+                document.getElementById('review-detail').innerHTML = buildDetailPanel(items[idx]);
+                bindReviewActions(api, items[idx], items, idx);
+            }
+        });
+    });
+
+    if (items.length > 0) bindReviewActions(api, items[0], items, 0);
 }
 
-function renderReviewRow(r) {
-    const severity = r.trust_score < 0.4 ? 'critical' : 'warning';
-    const severityColor = severity === 'critical' ? 'var(--accent-red)' : 'var(--accent-amber)';
-    const isPending = r.status === 'pending';
+function buildDetailPanel(item) {
+    const ts = item.trust_score ? (item.trust_score * 100).toFixed(0) : '??';
+    const tsColor = item.trust_score < 0.5 ? 'var(--accent-red)' : (item.trust_score < 0.7 ? 'var(--accent-amber)' : 'var(--accent-emerald)');
+    const inputText = item.full_input || item.input_preview || item.input || 'No input data available';
+    const outputText = item.corrected_output || item.output || 'AI output was flagged and pending human review before release.';
+    const statusText = item.status === 'approved' ? '✅ Approved' : (item.status === 'rejected' ? '❌ Rejected' : '⏳ Pending Review');
+    const statusColor = item.status === 'approved' ? 'var(--accent-emerald)' : (item.status === 'rejected' ? 'var(--accent-red)' : 'var(--accent-amber)');
+    
+    // Pipeline steps the item went through
+    const pipelineSteps = [
+        { name: 'Input Received', icon: '📥', status: 'done' },
+        { name: 'Bias Detection', icon: '⚖️', status: 'done' },
+        { name: 'Truth Verification', icon: '🔍', status: 'done' },
+        { name: 'Trust Scoring', icon: '📊', status: 'done' },
+        { name: 'Auto-Correction', icon: '🔧', status: item.trust_score > 0.7 ? 'skipped' : 'done' },
+        { name: 'Human Review', icon: '👁️', status: item.status === 'pending' ? 'active' : 'done' },
+        { name: 'RLHF Feedback', icon: '🔄', status: item.reviewer_notes ? 'done' : 'pending' },
+        { name: 'Release Decision', icon: '🚀', status: item.status === 'approved' ? 'done' : 'pending' },
+    ];
 
     return `
-        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" 
-            onmouseover="this.style.background='rgba(255,255,255,0.03)'" 
-            onmouseout="this.style.background='transparent'"
-            data-audit-id="${r.audit_id}">
-            <td style="padding: 14px 16px;">
-                <a href="#/reports/${r.audit_id}" style="color: var(--accent-cyan); text-decoration: none; font-family: var(--font-mono); font-size: 0.85rem;">${r.audit_id}</a>
-            </td>
-            <td style="padding: 14px 16px;">
-                <span style="font-weight: 700; color: ${severityColor}; font-family: var(--font-mono); font-size: 1.1rem;">
-                    ${(r.trust_score * 100).toFixed(1)}%
-                </span>
-            </td>
-            <td style="padding: 14px 16px; color: var(--text-secondary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem;">
-                ${r.input_preview || '—'}
-            </td>
-            <td style="padding: 14px 16px;">
-                <span class="review-status ${r.status}">${r.status.charAt(0).toUpperCase() + r.status.slice(1)}</span>
-            </td>
-            <td style="padding: 14px 16px;">
-                ${isPending ? `
-                    <div class="review-actions">
-                        <button class="review-btn approve" data-action="approve" data-id="${r.audit_id}" title="Approve this result">
-                            ✓ Approve
-                        </button>
-                        <button class="review-btn reject" data-action="reject" data-id="${r.audit_id}" title="Reject this result">
-                            ✗ Reject
-                        </button>
-                    </div>
-                ` : `
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">
-                        ${r.reviewer_notes ? `"${r.reviewer_notes.substring(0, 30)}..."` : 'Reviewed'}
-                    </span>
-                `}
-            </td>
-        </tr>
-    `;
-}
+        <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem;">
+            <h2 style="font-size:1.15rem; font-weight:600;">Review Item: #${item.id || item.audit_id || '—'}</h2>
+            <div style="text-align:right;"><div style="font-size:1rem; font-weight:600;">Trust Score: <span style="color:${tsColor};">${ts}%</span></div><div style="font-size:0.75rem; color:${statusColor};">${statusText}</div></div>
+        </div>
 
-function bindReviewActions(rootEl, api) {
-    rootEl.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.review-btn');
-        if (!btn) return;
+        <!-- 8-Step Pipeline Progress -->
+        <div style="display:flex; gap:0.15rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+            ${pipelineSteps.map(s => {
+                const bg = s.status === 'done' ? 'rgba(16,185,129,0.15)' : (s.status === 'active' ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.05)');
+                const border = s.status === 'done' ? 'rgba(16,185,129,0.3)' : (s.status === 'active' ? 'rgba(59,130,246,0.5)' : 'rgba(255,255,255,0.1)');
+                const textColor = s.status === 'done' ? 'var(--accent-emerald)' : (s.status === 'active' ? 'var(--accent-blue)' : 'var(--text-muted)');
+                return '<div style="flex:1; min-width:80px; text-align:center; background:' + bg + '; border:1px solid ' + border + '; border-radius:6px; padding:0.4rem 0.2rem;"><div style="font-size:0.9rem;">' + s.icon + '</div><div style="font-size:0.62rem; color:' + textColor + '; margin-top:2px;">' + s.name + '</div></div>';
+            }).join('')}
+        </div>
 
-        const action = btn.dataset.action;
-        const auditId = btn.dataset.id;
-
-        if (action === 'reject') {
-            // Show modal for rejection notes
-            showRejectModal(auditId, api, rootEl);
-            return;
-        }
-
-        if (action === 'approve') {
-            btn.disabled = true;
-            btn.textContent = '⏳';
-            
-            const res = await api.post(`/review/${auditId}/approve`, { notes: '' });
-            if (res && res.status === 'success') {
-                // Refresh the page
-                await renderReviewPage(rootEl, api);
-                showReviewToast('✅ Audit approved successfully.', 'var(--accent-green)');
-            }
-        }
-    });
-}
-
-function showRejectModal(auditId, api, rootEl) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal-card">
-            <div class="modal-title" style="display: flex; align-items: center; gap: 0.5rem;">
-                <svg width="20" height="20" fill="none" stroke="var(--accent-red)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.003c-.77-1.333-2.694-1.333-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z"/></svg>
-                Reject Audit ${auditId}
-            </div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                Please provide a reason for rejecting this audit result. This will be logged for accountability.
-            </p>
-            <textarea id="reject-notes" class="form-textarea" placeholder="Enter rejection reason..." style="min-height: 100px; border-color: rgba(244, 63, 94, 0.3); background: rgba(0,0,0,0.3);"></textarea>
-            <div class="modal-actions">
-                <button class="btn-action" id="modal-cancel" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-secondary); padding: 0.6rem 1.25rem;">
-                    Cancel
-                </button>
-                <button class="btn-action btn-danger" id="modal-confirm" style="padding: 0.6rem 1.5rem;">
-                    Confirm Rejection
-                </button>
-            </div>
+        <div style="margin-bottom:1.25rem;">
+            <h4 style="font-size:0.88rem; margin-bottom:0.4rem;">AI Input Context</h4>
+            <div style="background:rgba(255,255,255,0.05); padding:0.85rem; border-radius:var(--radius-md); font-size:0.82rem; color:var(--text-secondary); border:1px solid rgba(255,255,255,0.1);">${inputText}</div>
+        </div>
+        <div style="margin-bottom:1.25rem;">
+            <h4 style="font-size:0.88rem; margin-bottom:0.4rem;">AI Output Response</h4>
+            <div style="background:rgba(255,255,255,0.05); padding:0.85rem; border-radius:var(--radius-md); font-size:0.82rem; color:var(--text-secondary); border:1px solid rgba(255,255,255,0.1);">${outputText}</div>
+        </div>
+        <div style="background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.3); padding:1rem; border-radius:var(--radius-md); margin-bottom:1.5rem;">
+            <h4 style="font-size:0.9rem; margin-bottom:0.5rem;">Flagged Reasons & Analysis</h4>
+            <div style="font-size:0.82rem; color:var(--text-secondary);">⚠️ Trust score below threshold (${ts}%). Automated checks flagged potential issues for human verification.</div>
+            ${item.trust_score < 0.5 ? '<div style="font-size:0.78rem; color:var(--accent-red); margin-top:0.5rem;">🔴 <strong>Critical:</strong> Score is significantly below the 70% safety threshold. Bias and/or hallucination detected.</div>' : ''}
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem;">
+            <button class="btn" id="btn-approve" style="flex:1; background:var(--accent-green); color:white; justify-content:center;">✅ Approve Output</button>
+            <button class="btn" id="btn-reject" style="flex:1; background:var(--accent-blue); color:white; justify-content:center;">❌ Reject & Edit</button>
+            <button class="btn" id="btn-escalate" style="flex:1; background:var(--accent-red); color:white; justify-content:center;">🚨 Escalate</button>
+        </div>
+        <div id="action-result" style="display:none; padding:0.75rem; border-radius:var(--radius-md); font-size:0.85rem; margin-bottom:1rem;"></div>
+        <div>
+            <h4 style="font-size:0.88rem; margin-bottom:0.4rem;">Reviewer Notes & Feedback (RLHF Loop)</h4>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.4rem;">Your feedback is fed back into the model via Reinforcement Learning from Human Feedback (RLHF) to improve future predictions.</p>
+            <textarea class="form-textarea" id="review-notes" placeholder="Enter feedback for model improvement... (e.g., 'The bias toward zip-code based scoring should be removed')" style="min-height:80px; background:rgba(255,255,255,0.02);">${item.reviewer_notes || ''}</textarea>
         </div>
     `;
-
-    document.body.appendChild(overlay);
-
-    // Bind modal events
-    overlay.querySelector('#modal-cancel').addEventListener('click', () => {
-        overlay.remove();
-    });
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-    });
-    overlay.querySelector('#modal-confirm').addEventListener('click', async () => {
-        const notes = overlay.querySelector('#reject-notes').value;
-        if (!notes.trim()) {
-            overlay.querySelector('#reject-notes').style.borderColor = 'var(--accent-red)';
-            overlay.querySelector('#reject-notes').placeholder = 'Notes are required for rejection!';
-            return;
-        }
-
-        const btn = overlay.querySelector('#modal-confirm');
-        btn.disabled = true;
-        btn.textContent = 'Rejecting...';
-
-        const res = await api.post(`/review/${auditId}/reject`, { notes });
-        overlay.remove();
-
-        if (res && res.status === 'success') {
-            await renderReviewPage(rootEl, api);
-            showReviewToast('❌ Audit rejected.', 'var(--accent-red)');
-        }
-    });
 }
 
-function showReviewToast(message, color) {
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.style.position = 'fixed';
-        toastContainer.style.bottom = '20px';
-        toastContainer.style.right = '20px';
-        toastContainer.style.zIndex = '9999';
-        toastContainer.style.display = 'flex';
-        toastContainer.style.flexDirection = 'column';
-        toastContainer.style.gap = '10px';
-        document.body.appendChild(toastContainer);
-    }
+function bindReviewActions(api, item, items, idx) {
+    const actionResult = document.getElementById('action-result');
+    const auditId = item.audit_id || item.id;
     
-    const toast = document.createElement('div');
-    toast.style.background = 'rgba(17, 24, 39, 0.95)';
-    toast.style.backdropFilter = 'blur(10px)';
-    toast.style.border = `1px solid ${color}`;
-    toast.style.color = '#fff';
-    toast.style.padding = '12px 20px';
-    toast.style.borderRadius = 'var(--radius-md)';
-    toast.style.fontSize = '0.9rem';
-    toast.style.display = 'flex';
-    toast.style.alignItems = 'center';
-    toast.style.gap = '10px';
-    toast.style.transform = 'translateX(100%)';
-    toast.style.opacity = '0';
-    toast.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease';
-    
-    toast.innerHTML = `<div style="width:8px; height:8px; border-radius:50%; background:${color}"></div> ${message}`;
-    toastContainer.appendChild(toast);
-    
-    requestAnimationFrame(() => {
-        toast.style.transform = 'translateX(0)';
-        toast.style.opacity = '1';
+    const showResult = (msg, color) => {
+        actionResult.style.display = 'block';
+        actionResult.style.background = color === 'green' ? 'rgba(16,185,129,0.1)' : (color === 'red' ? 'rgba(244,63,94,0.1)' : 'rgba(59,130,246,0.1)');
+        actionResult.style.border = '1px solid ' + (color === 'green' ? 'rgba(16,185,129,0.3)' : (color === 'red' ? 'rgba(244,63,94,0.3)' : 'rgba(59,130,246,0.3)'));
+        actionResult.style.color = color === 'green' ? 'var(--accent-emerald)' : (color === 'red' ? 'var(--accent-red)' : 'var(--accent-blue)');
+        actionResult.textContent = msg;
+    };
+
+    const approve = document.getElementById('btn-approve');
+    const reject = document.getElementById('btn-reject');
+    const escalate = document.getElementById('btn-escalate');
+
+    if (approve) approve.addEventListener('click', async () => {
+        const notes = document.getElementById('review-notes')?.value || '';
+        approve.disabled = true;
+        approve.textContent = '⏳ Processing...';
+        const res = await api.post('/review/' + auditId + '/approve', { notes });
+        if (res) {
+            approve.textContent = '✅ Approved!';
+            showResult('✅ Item approved and released. RLHF feedback recorded.', 'green');
+            item.status = 'approved';
+        } else {
+            approve.textContent = '❌ Failed';
+            showResult('Failed to approve. Check backend connection.', 'red');
+        }
+        reject.disabled = true;
+        escalate.disabled = true;
     });
-    
-    setTimeout(() => {
-        toast.style.transform = 'translateX(100%)';
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-    }, 3500);
+
+    if (reject) reject.addEventListener('click', async () => {
+        const notes = document.getElementById('review-notes')?.value || '';
+        if (!notes) { showResult('⚠️ Please provide feedback notes for rejection. This is required for RLHF.', 'red'); return; }
+        reject.disabled = true;
+        reject.textContent = '⏳ Processing...';
+        const res = await api.post('/review/' + auditId + '/reject', { notes });
+        if (res) {
+            reject.textContent = '❌ Rejected';
+            showResult('❌ Item rejected. Feedback sent to RLHF pipeline for model improvement.', 'red');
+            item.status = 'rejected';
+        } else {
+            reject.textContent = '❌ Failed';
+            showResult('Failed to reject. Check backend connection.', 'red');
+        }
+        approve.disabled = true;
+        escalate.disabled = true;
+    });
+
+    if (escalate) escalate.addEventListener('click', async () => {
+        const notes = document.getElementById('review-notes')?.value || 'Escalated for senior review';
+        escalate.disabled = true;
+        escalate.textContent = '⏳ Escalating...';
+        const res = await api.post('/review/' + auditId + '/escalate', { notes });
+        if (res) {
+            escalate.textContent = '🚨 Escalated';
+            showResult('🚨 Item escalated to senior reviewer. This case has been flagged for priority review.', 'blue');
+        } else {
+            escalate.textContent = '🚨 Failed';
+            showResult('Failed to escalate. Check backend connection.', 'red');
+        }
+        approve.disabled = true;
+        reject.disabled = true;
+    });
 }

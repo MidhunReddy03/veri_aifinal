@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VeriAI — AI Trust Auditor Platform</title>
     <meta name="description" content="VeriAI detects, scores, explains, and corrects bias and hallucinations in AI systems. Comprehensive AI governance and trust scoring." />
-    <link rel="stylesheet" href="src/style.css" />
+    <link rel="stylesheet" href="src/style.css?v=5" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -20,24 +20,22 @@
                 <div class="sidebar-brand">
                     <div class="brand-icon">
                         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                            <circle cx="14" cy="14" r="12" stroke="url(#brandGrad)" stroke-width="2.5" fill="none"/>
-                            <path d="M9 14l3 3 7-7" stroke="url(#brandGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            <defs><linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+                            <path d="M4 14l6 8 14-16" stroke="url(#brandGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs><linearGradient id="brandGrad" x1="0" y1="0" x2="28" y2="28"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
                         </svg>
                     </div>
-                    <span class="brand-name">VeriAI</span>
-                    <span class="brand-tag">v2.0</span>
+                    <span class="brand-name">VeriAI Auditor</span>
                 </div>
             </a>
 
             <nav class="sidebar-nav">
                 <a href="#/dashboard" class="nav-item active" data-page="dashboard" id="nav-dashboard">
-                    <span class="nav-icon">📊</span>
-                    <span class="nav-label">Dashboard</span>
+                    <span class="nav-icon">⚏</span>
+                    <span class="nav-label">Overview</span>
                 </a>
                 <a href="#/audit" class="nav-item" data-page="audit" id="nav-audit">
-                    <span class="nav-icon">🔍</span>
-                    <span class="nav-label">Run Audit</span>
+                    <span class="nav-icon">◱</span>
+                    <span class="nav-label">Explainability</span>
                 </a>
                 <a href="#/reports" class="nav-item" data-page="reports" id="nav-reports">
                     <span class="nav-icon">📋</span>
@@ -50,10 +48,6 @@
                 <a href="#/settings" class="nav-item" data-page="settings" id="nav-settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Settings</span>
-                </a>
-                <a href="#/feedback" class="nav-item" data-page="feedback" id="nav-feedback">
-                    <span class="nav-icon">💬</span>
-                    <span class="nav-label">Feedback</span>
                 </a>
             </nav>
 
@@ -83,6 +77,6 @@
         </main>
     </div>
 
-    <script src="src/main.js" type="module"></script>
+    <script src="src/main.js?v=5" type="module"></script>
 </body>
 </html>
