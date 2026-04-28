@@ -6,7 +6,7 @@ import { renderFeedbackPage } from './pages/feedback.js?v=10';
 import { renderSettingsPage } from './pages/settings.js?v=10';
 import { renderReviewPage } from './pages/review.js?v=10';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = 'https://veriai-eyxl.onrender.com/api';
 
 // Simple API Client
 export const apiClient = {
@@ -49,7 +49,7 @@ const routes = {
 
 async function router() {
     let hash = window.location.hash.slice(1) || '/';
-    
+
     // Check if route has an ID parameter (e.g., /reports/demo-001)
     let id = null;
     let baseRoute = hash;
@@ -87,7 +87,7 @@ async function router() {
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         const navEl = document.getElementById(`nav-${baseRoute.substring(1)}`);
         if (navEl) navEl.classList.add('active');
-        
+
         // Render Route
         appRoot.innerHTML = '<div class="loading-overlay"><div class="loading-spinner"></div><div>Loading...</div></div>';
         try {
