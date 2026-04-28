@@ -59,7 +59,7 @@ if frontend_dir.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "version": "1.0.0"}
+@app.get("/health", include_in_schema=False)
+def health_check():
+    return {"status": "ok"}
 
