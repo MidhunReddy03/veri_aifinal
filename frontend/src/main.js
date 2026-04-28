@@ -6,7 +6,7 @@ import { renderFeedbackPage } from './pages/feedback.js?v=10';
 import { renderSettingsPage } from './pages/settings.js?v=10';
 import { renderReviewPage } from './pages/review.js?v=10';
 
-const API_BASE = 'https://veriai-eyxl.onrender.com/api';
+const API_BASE = window.location.origin + '/api';
 
 // Simple API Client
 export const apiClient = {
