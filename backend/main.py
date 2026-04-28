@@ -53,13 +53,12 @@ app.include_router(ml.router, prefix="/api", tags=["ML"])
 app.include_router(settings.router, prefix="/api", tags=["Settings"])
 app.include_router(review.router, prefix="/api", tags=["Review"])
 
-# ----- Serve frontend static files -----
-frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
-if frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
-
-
+#  HEALTH CHECK   (correct position)
 @app.get("/health", include_in_schema=False)
 def health_check():
     return {"status": "ok"}
 
+# ----- Serve frontend -----
+frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+if frontend_dir.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
