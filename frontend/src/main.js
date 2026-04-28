@@ -1,10 +1,10 @@
-import { renderLogin } from './pages/login.js?v=5';
-import { renderDashboard } from './pages/dashboard.js?v=5';
-import { renderAuditPage } from './pages/audit.js?v=5';
-import { renderReportsPage } from './pages/reports.js?v=5';
-import { renderFeedbackPage } from './pages/feedback.js?v=5';
-import { renderSettingsPage } from './pages/settings.js?v=5';
-import { renderReviewPage } from './pages/review.js?v=5';
+import { renderLogin } from './pages/login.js?v=10';
+import { renderDashboard } from './pages/dashboard.js?v=10';
+import { renderAuditPage } from './pages/audit.js?v=10';
+import { renderReportsPage } from './pages/reports.js?v=10';
+import { renderFeedbackPage } from './pages/feedback.js?v=10';
+import { renderSettingsPage } from './pages/settings.js?v=10';
+import { renderReviewPage } from './pages/review.js?v=10';
 
 const API_BASE = 'http://localhost:8000/api';
 

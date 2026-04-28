@@ -1,5 +1,6 @@
 """Review Queue API — Human-in-the-Loop.
 Manages the review queue for low-trust audit results.
+Returns enriched data by cross-referencing the audits table.
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -16,21 +17,36 @@ class ReviewAction(BaseModel):
 
 @router.get("/review/queue")
 async def get_review_queue():
-    """List all reviews (most recent first)."""
+    """List all reviews enriched with full audit data (scores, correction)."""
     rows = await db.get_pending_reviews(limit=50)
-    return [
-        {
+    enriched = []
+    for r in rows:
+        audit_id = r[1]
+        # Cross-reference with audits table for full scores
+        audit_row = await db.get_audit(audit_id)
+        audit_data = {}
+        if audit_row:
+            audit_data = {
+                "bias_score": audit_row[2],
+                "truth_score": audit_row[3],
+                "corrected_output": audit_row[5],
+            }
+
+        enriched.append({
             "id": r[0],
-            "audit_id": r[1],
+            "audit_id": audit_id,
             "trust_score": r[2],
             "input_preview": r[3],
             "status": r[4],
             "reviewer_notes": r[5] or "",
             "created_at": r[6],
             "reviewed_at": r[7],
-        }
-        for r in rows
-    ]
+            # Enriched fields from audit
+            "bias_score": audit_data.get("bias_score"),
+            "truth_score": audit_data.get("truth_score"),
+            "corrected_output": audit_data.get("corrected_output"),
+        })
+    return enriched
 
 
 @router.get("/review/stats")

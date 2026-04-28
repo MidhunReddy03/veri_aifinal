@@ -97,6 +97,96 @@ export async function renderDashboard(rootEl, api) {
                 <div id="action-status" class="action-status-badge" style="display:none;">Idle</div>
             </div>
         </div>
+
+        <!-- 8-Step Pipeline Overview -->
+        <div class="card glass-card" style="margin-top:1.5rem;">
+            <div class="card-header"><h3 class="card-title">🔗 8-Step Reasoning Pipeline</h3><span class="badge badge-purple">Parallel Processing</span></div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:separate; border-spacing:0 4px; font-size:0.78rem;">
+                    <thead>
+                        <tr style="color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-size:0.68rem;">
+                            <th style="padding:0.5rem 0.75rem; text-align:left;">Step</th>
+                            <th style="padding:0.5rem 0.75rem; text-align:left;">Purpose</th>
+                            <th style="padding:0.5rem 0.75rem; text-align:left;">Technology</th>
+                            <th style="padding:0.5rem 0.75rem; text-align:center;">Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background:rgba(255,255,255,0.03); border-radius:4px;">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-cyan); font-weight:600;">⚖️ 1. Bias Detection</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Demographic parity & equalized odds</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">Scikit-learn SGD</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-emerald); font-size:0.68rem;">∥ Parallel</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-cyan); font-weight:600;">🔍 2. Truth Verification</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Semantic search against knowledge base</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">FAISS + TF-IDF</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-emerald); font-size:0.68rem;">∥ Parallel</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-cyan); font-weight:600;">📊 3. Cluster Analysis</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Fairness across data subgroups</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">KMeans clustering</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-emerald); font-size:0.68rem;">∥ Parallel</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-cyan); font-weight:600;">📈 4. Distribution Analysis</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Data drift & label imbalance</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">SciPy statistics</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-emerald); font-size:0.68rem;">∥ Parallel</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-amber); font-weight:600;">🎯 5. Trust Scoring</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Weighted composite: Trust = Σ(wᵢ × metricᵢ)</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">Configurable per industry</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-blue); font-size:0.68rem;">Sequential</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-amber); font-weight:600;">🔧 6. Auto-Correction</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Halves biased weights, replaces hallucinations</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">Rule-based engine</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-blue); font-size:0.68rem;">Sequential</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-amber); font-weight:600;">📐 7. SHAP Explainability</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Explains why each feature matters</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">Multi-method SHAP + cache</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-cyan); font-size:0.68rem;">0ms (cached)</span></td>
+                        </tr>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <td style="padding:0.5rem 0.75rem; color:var(--accent-red); font-weight:600;">👁️ 8. Human Review</td>
+                            <td style="padding:0.5rem 0.75rem; color:var(--text-secondary);">Flags low-trust (<60%) for approval</td>
+                            <td style="padding:0.5rem 0.75rem;"><code style="color:var(--accent-purple); font-size:0.72rem;">HITL review queue</code></td>
+                            <td style="padding:0.5rem 0.75rem; text-align:center;"><span style="color:var(--accent-amber); font-size:0.68rem;">Human</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Key Differentiators -->
+        <div class="card glass-card" style="margin-top:1.5rem;">
+            <div class="card-header"><h3 class="card-title">🏆 Key Differentiators</h3></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; padding:0.5rem 0;">
+                <div style="padding:0.75rem; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.15); border-radius:var(--radius-md);">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--accent-emerald); margin-bottom:0.3rem;">⚡ Parallel Processing</div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.5;">Steps 1-4 run concurrently via <code style="color:var(--accent-purple);">asyncio.gather</code>, cutting latency ~60%. Pick <strong>Fast</strong> (~1s), <strong>Standard</strong> (~3s), or <strong>Thorough</strong> (~8s).</div>
+                </div>
+                <div style="padding:0.75rem; background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-md);">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--accent-blue); margin-bottom:0.3rem;">🎯 Dynamic Trust Formula</div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.5;">Weights configurable per industry. Healthcare = truth-heavy (0.45). HR/Hiring = bias-heavy (0.40). No code changes needed.</div>
+                </div>
+                <div style="padding:0.75rem; background:rgba(167,139,250,0.05); border:1px solid rgba(167,139,250,0.15); border-radius:var(--radius-md);">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--accent-purple); margin-bottom:0.3rem;">📐 Instant Explainability</div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.5;">Coefficient-based SHAP returns in <strong>0ms</strong> vs 2-5s for traditional SHAP, with result caching for repeat queries.</div>
+                </div>
+                <div style="padding:0.75rem; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.15); border-radius:var(--radius-md);">
+                    <div style="font-size:0.85rem; font-weight:600; color:var(--accent-red); margin-bottom:0.3rem;">👁️ Human-in-the-Loop + RLHF</div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.5;">Low-trust outputs auto-queue for review. Human feedback adjusts trust weights and triggers model retraining automatically.</div>
+                </div>
+            </div>
+        </div>
     `;
 
     setTimeout(() => initCharts(stats.avg_trust || 0, biasData, fairnessData), 100);

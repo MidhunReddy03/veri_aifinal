@@ -3,6 +3,9 @@ export async function renderSettingsPage(rootEl, api) {
     const weights = config?.active_weights || { truth: 0.35, bias: 0.3, confidence: 0.15, cluster: 0.1, distribution: 0.1 };
     const presets = config?.presets || {};
 
+    // Fetch knowledge base stats
+    const kbStats = await api.get('/knowledge-base/stats');
+
     rootEl.innerHTML = `
         <div style="margin-bottom:1.5rem;">
             <div style="font-size:0.8rem; color:var(--text-muted);">VeriAI Industry Configuration</div>
@@ -65,11 +68,39 @@ export async function renderSettingsPage(rootEl, api) {
                     </div>
                 </div>
 
+                <!-- Knowledge Base Management — FUNCTIONAL -->
                 <div class="card glass-card">
-                    <h4 style="font-size:0.9rem; margin-bottom:1rem;">Knowledge Base Management</h4>
-                    <button class="btn" style="width:100%; background:var(--accent-blue); color:white; justify-content:center; margin-bottom:0.75rem;">Upload CSV Data</button>
-                    <button class="btn" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.2); color:white; justify-content:center; margin-bottom:1rem;">Connect FAISS Vector Store</button>
-                    <div style="font-size:0.78rem; color:var(--text-muted);">Recent: <span style="color:var(--text-secondary);">medical_data_v2.csv</span> <span style="color:var(--accent-emerald);">(Successful)</span></div>
+                    <h4 style="font-size:0.9rem; margin-bottom:0.5rem;">📚 Knowledge Base Management</h4>
+                    <p style="font-size:0.72rem; color:var(--text-muted); margin-bottom:0.75rem;">
+                        Upload training data (CSV) for bias scanning, or add knowledge articles to the FAISS vector store for truth/hallucination verification.
+                    </p>
+
+                    <!-- Hidden file inputs -->
+                    <input type="file" id="csv-file-input" accept=".csv" style="display:none;" />
+                    <input type="file" id="kb-file-input" accept=".csv" style="display:none;" />
+
+                    <button class="btn" id="btn-upload-csv" style="width:100%; background:var(--accent-blue); color:white; justify-content:center; margin-bottom:0.75rem; transition:all 0.2s;">
+                        📊 Upload CSV Data (Bias Scan)
+                    </button>
+                    <button class="btn" id="btn-connect-faiss" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.2); color:white; justify-content:center; margin-bottom:0.75rem; transition:all 0.2s;">
+                        🔗 Connect FAISS Vector Store
+                    </button>
+
+                    <!-- FAISS Status -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-top:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:0.72rem; color:var(--text-muted);">FAISS Status:</div>
+                        <div style="display:flex; align-items:center; gap:0.3rem;">
+                            <div style="width:6px; height:6px; border-radius:50%; background:${kbStats?.faiss_status === 'connected' ? 'var(--accent-emerald)' : 'var(--accent-red)'}; box-shadow:0 0 6px ${kbStats?.faiss_status === 'connected' ? 'var(--accent-emerald)' : 'var(--accent-red)'};"></div>
+                            <span id="faiss-status" style="font-size:0.72rem; color:${kbStats?.faiss_status === 'connected' ? 'var(--accent-emerald)' : 'var(--accent-red)'};">${kbStats?.faiss_status === 'connected' ? 'Connected' : 'Disconnected'}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0;">
+                        <div style="font-size:0.72rem; color:var(--text-muted);">Articles Indexed:</div>
+                        <span id="kb-count" style="font-size:0.72rem; color:var(--accent-cyan); font-weight:600;">${kbStats?.total_articles || 0}</span>
+                    </div>
+
+                    <!-- Upload result area -->
+                    <div id="upload-result" style="display:none; margin-top:0.75rem; padding:0.75rem; border-radius:var(--radius-md); font-size:0.78rem;"></div>
                 </div>
 
                 <button class="btn btn-primary" id="save-weights-btn" style="width:100%; justify-content:center;">💾 Save Configuration & Apply</button>
@@ -78,7 +109,156 @@ export async function renderSettingsPage(rootEl, api) {
         </div>
     `;
 
-    // Update simulated score on slider change
+    // ==========================================
+    // UPLOAD CSV — Bias Scan Data
+    // ==========================================
+    const csvFileInput = document.getElementById('csv-file-input');
+    const btnUploadCsv = document.getElementById('btn-upload-csv');
+
+    btnUploadCsv.addEventListener('click', () => {
+        csvFileInput.click();
+    });
+
+    csvFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        btnUploadCsv.disabled = true;
+        btnUploadCsv.textContent = '⏳ Uploading ' + file.name + '...';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const resultEl = document.getElementById('upload-result');
+
+        try {
+            const res = await fetch('http://localhost:8000/api/upload-csv', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                resultEl.style.display = 'block';
+                resultEl.style.background = 'rgba(16,185,129,0.1)';
+                resultEl.style.border = '1px solid rgba(16,185,129,0.3)';
+                resultEl.style.color = 'var(--accent-emerald)';
+                resultEl.innerHTML = `
+                    <div style="font-weight:600; margin-bottom:0.3rem;">✅ ${data.filename} uploaded successfully!</div>
+                    <div style="color:var(--text-secondary);">
+                        <strong>${data.rows}</strong> rows × <strong>${data.num_features}</strong> features<br/>
+                        Label column: <strong>${data.label_column}</strong><br/>
+                        Columns: ${data.columns.join(', ')}
+                    </div>
+                    <div style="margin-top:0.5rem; font-size:0.72rem; color:var(--text-muted);">
+                        Dataset parsed and ready for bias scan. Run an audit to analyze this data.
+                    </div>
+                `;
+                btnUploadCsv.textContent = '✅ ' + data.filename + ' Loaded';
+            } else {
+                resultEl.style.display = 'block';
+                resultEl.style.background = 'rgba(244,63,94,0.1)';
+                resultEl.style.border = '1px solid rgba(244,63,94,0.3)';
+                resultEl.style.color = 'var(--accent-red)';
+                resultEl.textContent = '❌ ' + (data.error || 'Upload failed');
+                btnUploadCsv.textContent = '📊 Upload CSV Data (Bias Scan)';
+            }
+        } catch (err) {
+            resultEl.style.display = 'block';
+            resultEl.style.background = 'rgba(244,63,94,0.1)';
+            resultEl.style.border = '1px solid rgba(244,63,94,0.3)';
+            resultEl.style.color = 'var(--accent-red)';
+            resultEl.textContent = '❌ Network error: ' + err.message;
+            btnUploadCsv.textContent = '📊 Upload CSV Data (Bias Scan)';
+        }
+
+        btnUploadCsv.disabled = false;
+        csvFileInput.value = ''; // Reset so same file can be re-uploaded
+    });
+
+    // ==========================================
+    // CONNECT FAISS — Knowledge Base Upload
+    // ==========================================
+    const kbFileInput = document.getElementById('kb-file-input');
+    const btnFaiss = document.getElementById('btn-connect-faiss');
+
+    btnFaiss.addEventListener('click', () => {
+        kbFileInput.click();
+    });
+
+    kbFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        btnFaiss.disabled = true;
+        btnFaiss.textContent = '⏳ Uploading to FAISS: ' + file.name + '...';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const resultEl = document.getElementById('upload-result');
+
+        try {
+            const res = await fetch('http://localhost:8000/api/upload-csv-knowledge', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                // Now rebuild the FAISS index
+                btnFaiss.textContent = '🔧 Rebuilding FAISS index...';
+                const rebuildRes = await api.post('/knowledge-base/rebuild');
+
+                resultEl.style.display = 'block';
+                resultEl.style.background = 'rgba(16,185,129,0.1)';
+                resultEl.style.border = '1px solid rgba(16,185,129,0.3)';
+                resultEl.style.color = 'var(--accent-emerald)';
+                resultEl.innerHTML = `
+                    <div style="font-weight:600; margin-bottom:0.3rem;">✅ FAISS Vector Store Updated!</div>
+                    <div style="color:var(--text-secondary);">
+                        <strong>${data.articles_inserted}</strong> new articles inserted<br/>
+                        <strong>${data.skipped_duplicates}</strong> duplicates skipped<br/>
+                        Total articles indexed: <strong>${data.total_articles}</strong>
+                    </div>
+                    ${rebuildRes ? '<div style="margin-top:0.5rem; font-size:0.72rem; color:var(--accent-cyan);">🔗 FAISS index rebuilt — ' + (rebuildRes.index_dimensions || 0) + ' dimensions, ' + (rebuildRes.total_articles || 0) + ' articles</div>' : ''}
+                `;
+
+                // Update status indicators
+                document.getElementById('faiss-status').textContent = 'Connected';
+                document.getElementById('faiss-status').style.color = 'var(--accent-emerald)';
+                document.getElementById('kb-count').textContent = data.total_articles;
+                btnFaiss.textContent = '✅ FAISS Connected (' + data.total_articles + ' articles)';
+            } else {
+                resultEl.style.display = 'block';
+                resultEl.style.background = 'rgba(244,63,94,0.1)';
+                resultEl.style.border = '1px solid rgba(244,63,94,0.3)';
+                resultEl.style.color = 'var(--accent-red)';
+                resultEl.innerHTML = `
+                    <div style="font-weight:600;">❌ ${data.error || 'Upload failed'}</div>
+                    <div style="color:var(--text-muted); margin-top:0.3rem; font-size:0.72rem;">
+                        CSV format: columns named <strong>title</strong>, <strong>content</strong>, <strong>source</strong> (source is optional).<br/>
+                        The <strong>content</strong> column contains the knowledge text for FAISS indexing.
+                    </div>
+                `;
+                btnFaiss.textContent = '🔗 Connect FAISS Vector Store';
+            }
+        } catch (err) {
+            resultEl.style.display = 'block';
+            resultEl.style.background = 'rgba(244,63,94,0.1)';
+            resultEl.style.border = '1px solid rgba(244,63,94,0.3)';
+            resultEl.style.color = 'var(--accent-red)';
+            resultEl.textContent = '❌ Network error: ' + err.message;
+            btnFaiss.textContent = '🔗 Connect FAISS Vector Store';
+        }
+
+        btnFaiss.disabled = false;
+        kbFileInput.value = '';
+    });
+
+    // ==========================================
+    // Simulation + Presets + Save (existing)
+    // ==========================================
     const updateSimulation = () => {
         const vals = {};
         let sum = 0;
@@ -89,13 +269,11 @@ export async function renderSettingsPage(rootEl, api) {
         document.getElementById('weight-sum').textContent = sum + '%';
         document.getElementById('weight-sum').style.color = Math.abs(sum - 100) < 5 ? 'var(--accent-emerald)' : 'var(--accent-red)';
         
-        // Simulate a score based on weights
         const simScore = Math.round(vals.truth * 0.7 + vals.bias * 0.85 + vals.confidence * 0.9 + vals.cluster * 0.6 + vals.distribution * 0.75);
         const clampedScore = Math.min(Math.max(simScore, 10), 99);
         document.getElementById('sim-score').textContent = clampedScore + '%';
         document.getElementById('score-ring').setAttribute('stroke-dasharray', clampedScore + ', 100');
 
-        // Update formula
         document.getElementById('formula-display').textContent = 
             'Trust = ' + (vals.truth/100).toFixed(2) + '×Truth + ' + (vals.bias/100).toFixed(2) + '×Bias + ' + (vals.confidence/100).toFixed(2) + '×Conf + ' + (vals.cluster/100).toFixed(2) + '×Clust + ' + (vals.distribution/100).toFixed(2) + '×Dist';
     };

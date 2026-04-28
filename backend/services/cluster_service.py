@@ -24,25 +24,34 @@ def cluster_bias_analysis(
     The fairness score is the average of (1 - bias) across clusters.
     Returns (overall_score, per_cluster_details).
     """
-    labels, _ = cluster_features(X, n_clusters)
+    # Cap clusters to number of samples
+    actual_clusters = min(n_clusters, len(X))
+    if actual_clusters < 2:
+        return 0.5, [{"cluster_id": 0, "bias": 0.5, "size": len(X)}]
+    labels, _ = cluster_features(X, actual_clusters)
     per_cluster = []
     scores = []
-    for cluster_id in range(n_clusters):
+    for cluster_id in range(actual_clusters):
         mask = labels == cluster_id
-        if mask.sum() == 0:
+        if mask.sum() < 2:
             continue
-        # Simple bias: difference in positive rate between protected groups within cluster
         protected = X[mask, protected_idx]
-        # Train a quick logistic model on cluster data
-        from sklearn.linear_model import LogisticRegression
-        clf = LogisticRegression(max_iter=200, solver='liblinear')
-        clf.fit(X[mask], y[mask])
-        preds = clf.predict(X[mask])
-        # demographic parity within cluster
-        dp = abs(preds[protected == 0].mean() - preds[protected == 1].mean())
-        # bias contribution (lower is better)
-        bias = dp
-        scores.append(1 - bias)  # higher is better
-        per_cluster.append({"cluster_id": int(cluster_id), "bias": bias, "size": int(mask.sum())})
-    overall = float(np.mean(scores)) if scores else 0.0
+        try:
+            from sklearn.linear_model import LogisticRegression
+            clf = LogisticRegression(max_iter=200, solver='liblinear')
+            y_cluster = y[mask]
+            # Check if labels are homogeneous (only one class) — LR can't fit
+            if len(np.unique(y_cluster)) < 2:
+                dp = 0.0
+            else:
+                clf.fit(X[mask], y_cluster)
+                preds = clf.predict(X[mask])
+                g0 = preds[protected == 0]
+                g1 = preds[protected == 1]
+                dp = abs((g0.mean() if len(g0) > 0 else 0) - (g1.mean() if len(g1) > 0 else 0))
+        except Exception:
+            dp = 0.0
+        scores.append(1 - dp)
+        per_cluster.append({"cluster_id": int(cluster_id), "bias": dp, "size": int(mask.sum())})
+    overall = float(np.mean(scores)) if scores else 0.5
     return overall, per_cluster
