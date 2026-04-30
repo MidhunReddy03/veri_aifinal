@@ -201,9 +201,12 @@ async def knowledge_base_stats():
     cursor.execute("SELECT title, source FROM knowledge_base ORDER BY id DESC LIMIT 5")
     recent = [{"title": r[0], "source": r[1]} for r in cursor.fetchall()]
     
-    # Check if FAISS index is built
-    from ..services.truth_service import _KB_CACHE
-    faiss_status = "connected" if _KB_CACHE is not None else "disconnected"
+    # Build the FAISS cache lazily so the Settings page reflects the real
+    # indexed state after startup, before the first truth-check request.
+    from ..services import truth_service
+    if total > 0 and truth_service._KB_CACHE is None:
+        truth_service._load_knowledge_base()
+    faiss_status = "connected" if truth_service._KB_CACHE is not None else "disconnected"
     
     conn.close()
     

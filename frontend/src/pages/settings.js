@@ -132,13 +132,9 @@ export async function renderSettingsPage(rootEl, api) {
         const resultEl = document.getElementById('upload-result');
 
         try {
-            const res = await fetch('http://localhost:8000/api/upload-csv', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
+            const data = await api.postForm('/upload-csv', formData);
 
-            if (data.status === 'success') {
+            if (data && data.status === 'success') {
                 resultEl.style.display = 'block';
                 resultEl.style.background = 'rgba(16,185,129,0.1)';
                 resultEl.style.border = '1px solid rgba(16,185,129,0.3)';
@@ -160,7 +156,7 @@ export async function renderSettingsPage(rootEl, api) {
                 resultEl.style.background = 'rgba(244,63,94,0.1)';
                 resultEl.style.border = '1px solid rgba(244,63,94,0.3)';
                 resultEl.style.color = 'var(--accent-red)';
-                resultEl.textContent = '❌ ' + (data.error || 'Upload failed');
+                resultEl.textContent = '❌ ' + ((data && data.error) || 'Upload failed');
                 btnUploadCsv.textContent = '📊 Upload CSV Data (Bias Scan)';
             }
         } catch (err) {
@@ -199,13 +195,9 @@ export async function renderSettingsPage(rootEl, api) {
         const resultEl = document.getElementById('upload-result');
 
         try {
-            const res = await fetch('http://localhost:8000/api/upload-csv-knowledge', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
+            const data = await api.postForm('/upload-csv-knowledge', formData);
 
-            if (data.status === 'success') {
+            if (data && data.status === 'success') {
                 // Now rebuild the FAISS index
                 btnFaiss.textContent = '🔧 Rebuilding FAISS index...';
                 const rebuildRes = await api.post('/knowledge-base/rebuild');
@@ -235,7 +227,7 @@ export async function renderSettingsPage(rootEl, api) {
                 resultEl.style.border = '1px solid rgba(244,63,94,0.3)';
                 resultEl.style.color = 'var(--accent-red)';
                 resultEl.innerHTML = `
-                    <div style="font-weight:600;">❌ ${data.error || 'Upload failed'}</div>
+                    <div style="font-weight:600;">❌ ${(data && data.error) || 'Upload failed'}</div>
                     <div style="color:var(--text-muted); margin-top:0.3rem; font-size:0.72rem;">
                         CSV format: columns named <strong>title</strong>, <strong>content</strong>, <strong>source</strong> (source is optional).<br/>
                         The <strong>content</strong> column contains the knowledge text for FAISS indexing.

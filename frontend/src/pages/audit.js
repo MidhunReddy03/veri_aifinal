@@ -102,9 +102,8 @@ Example JSON: {"features": [[1,5,3,50],[0,2,4,30]], "labels": [1,0], "protected_
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const res = await fetch('http://localhost:8000/api/upload-csv', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.status === 'success' && data.dataset) {
+            const data = await api.postForm('/upload-csv', formData);
+            if (data && data.status === 'success' && data.dataset) {
                 document.getElementById('audit-input').value = JSON.stringify(data.dataset, null, 2);
                 csvStatus.innerHTML = '<div style="padding:0.75rem; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:6px; margin-top:0.5rem;">'
                     + '<div style="font-size:0.82rem; font-weight:600; color:var(--accent-emerald);">✅ Dataset Loaded: ' + file.name + '</div>'
@@ -118,7 +117,7 @@ Example JSON: {"features": [[1,5,3,50],[0,2,4,30]], "labels": [1,0], "protected_
                     + '<div style="font-size:0.72rem; color:var(--accent-cyan); margin-top:0.3rem;">👉 Click <strong>"Run Full Audit"</strong> below to run the 8-step pipeline on this dataset.</div>'
                     + '</div>';
             } else {
-                csvStatus.innerHTML = '<div style="font-size:0.78rem; color:var(--accent-red); margin-top:0.5rem;">❌ Failed: ' + (data.detail || 'Unknown error') + '</div>';
+                csvStatus.innerHTML = '<div style="font-size:0.78rem; color:var(--accent-red); margin-top:0.5rem;">❌ Failed: ' + ((data && (data.detail || data.error)) || 'Unknown error') + '</div>';
             }
         } catch (err) {
             csvStatus.innerHTML = '<div style="font-size:0.78rem; color:var(--accent-red); margin-top:0.5rem;">❌ Upload failed: ' + err.message + '</div>';

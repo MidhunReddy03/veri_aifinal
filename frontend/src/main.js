@@ -1,12 +1,12 @@
-import { renderLogin } from './pages/login.js?v=10';
-import { renderDashboard } from './pages/dashboard.js?v=10';
-import { renderAuditPage } from './pages/audit.js?v=10';
-import { renderReportsPage } from './pages/reports.js?v=10';
-import { renderFeedbackPage } from './pages/feedback.js?v=10';
-import { renderSettingsPage } from './pages/settings.js?v=10';
-import { renderReviewPage } from './pages/review.js?v=10';
+import { renderLogin } from './pages/login.js?v=11';
+import { renderDashboard } from './pages/dashboard.js?v=11';
+import { renderAuditPage } from './pages/audit.js?v=11';
+import { renderReportsPage } from './pages/reports.js?v=11';
+import { renderFeedbackPage } from './pages/feedback.js?v=11';
+import { renderSettingsPage } from './pages/settings.js?v=11';
+import { renderReviewPage } from './pages/review.js?v=11';
 
-const API_BASE = window.location.origin + '/api';
+export const API_BASE = window.location.origin + '/api';
 
 // Simple API Client
 export const apiClient = {
@@ -31,6 +31,19 @@ export const apiClient = {
             return await res.json();
         } catch (error) {
             console.error('API POST Error:', error);
+            return null;
+        }
+    },
+    async postForm(endpoint, formData) {
+        try {
+            const res = await fetch(`${API_BASE}${endpoint}`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return await res.json();
+        } catch (error) {
+            console.error('API FORM POST Error:', error);
             return null;
         }
     }
