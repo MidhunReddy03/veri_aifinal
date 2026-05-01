@@ -9,5 +9,6 @@ faiss-cpu
 pandas
 reportlab
 pytest
+httpx
 lime; python_version < "3.13"
 shap; python_version < "3.13"
