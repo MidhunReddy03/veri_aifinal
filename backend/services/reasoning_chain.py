@@ -17,6 +17,8 @@ import asyncio
 import numpy as np
 from typing import Dict, Any, List
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import logging
 
 from ..config import DEFAULT_NUM_CLUSTERS, HUMAN_REVIEW_THRESHOLD
 from .bias_service import compute_bias_score
@@ -28,34 +30,58 @@ from .correction_service import apply_corrections
 
 # Thread pool for CPU-bound tasks
 _executor = ThreadPoolExecutor(max_workers=4)
+logger = logging.getLogger(__name__)
+_AUDIT_CACHE: Dict[str, Dict[str, Any]] = {}
+_CACHE_LIMIT = 128
 
 
 def _parse_dataset(raw: str):
-    """Attempt to parse raw input as a JSON dataset.
-    Expected format: {"features": [[...]], "labels": [...], "feature_names": [...], "protected_index": int}
-    Falls back to a synthetic demo dataset if parsing fails.
-    """
+    """Parse JSON dataset; return None if the input should be treated as plain text."""
+    if not raw or not raw.strip():
+        raise ValueError("input_text cannot be empty.")
+    text = raw.strip()
+    looks_like_json = text.startswith("{") or text.startswith("[")
+
     try:
-        data = json.loads(raw)
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        if looks_like_json:
+            raise ValueError(f"Invalid JSON payload: {exc.msg}") from exc
+        return None
+
+    if not isinstance(data, dict):
+        raise ValueError("Dataset payload must be a JSON object.")
+    if "features" not in data or "labels" not in data:
+        raise ValueError("Dataset JSON must include 'features' and 'labels'.")
+
+    try:
         X = np.array(data["features"], dtype=float)
         y = np.array(data["labels"], dtype=float)
-        names = data.get("feature_names", [f"f{i}" for i in range(X.shape[1])])
-        prot_idx = data.get("protected_index", 0)
-        return X, y, names, prot_idx
-    except Exception:
-        # Generate a small synthetic dataset for demo purposes
-        rng = np.random.RandomState(42)
-        n = 200
-        gender = rng.randint(0, 2, n)       # protected attribute
-        experience = rng.normal(5, 2, n)
-        education = rng.normal(3, 1, n)
-        score = rng.normal(50, 10, n)
-        X = np.column_stack([gender, experience, education, score])
-        # Label: hired or not — with deliberate bias toward gender=1
-        prob = 0.3 + 0.2 * gender + 0.05 * experience / 10 + 0.05 * education / 5
-        y = (rng.rand(n) < prob).astype(float)
-        names = ["gender", "experience", "education", "score"]
-        return X, y, names, 0  # gender at index 0
+    except Exception as exc:
+        raise ValueError("Dataset 'features' and 'labels' must be numeric arrays.") from exc
+
+    if X.ndim != 2:
+        raise ValueError("'features' must be a 2D array.")
+    if y.ndim != 1:
+        raise ValueError("'labels' must be a 1D array.")
+    if len(X) == 0:
+        raise ValueError("Dataset cannot be empty.")
+    if len(X) != len(y):
+        raise ValueError("Features and labels must have the same number of rows.")
+
+    names = data.get("feature_names", [f"f{i}" for i in range(X.shape[1])])
+    if not isinstance(names, list) or len(names) != X.shape[1]:
+        raise ValueError("'feature_names' must be a list matching feature column count.")
+    prot_idx = int(data.get("protected_index", 0))
+    if prot_idx < 0 or prot_idx >= X.shape[1]:
+        raise ValueError("'protected_index' must point to a valid feature column.")
+
+    return X, y, names, prot_idx
+
+
+def _cache_key(input_text: str, num_clusters: int, depth: str) -> str:
+    raw = f"{depth}|{num_clusters}|{input_text}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 
 async def run_audit(input_text: str, num_clusters: int = None, depth: str = "standard") -> Dict[str, Any]:
@@ -68,8 +94,15 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
     
     Returns a comprehensive result dict ready to be serialised.
     """
-    audit_id = str(uuid.uuid4())[:8]
     n_clusters = num_clusters or DEFAULT_NUM_CLUSTERS
+    key = _cache_key(input_text, n_clusters, depth)
+    if key in _AUDIT_CACHE:
+        cached = dict(_AUDIT_CACHE[key])
+        cached["audit_id"] = str(uuid.uuid4())[:8]
+        cached["from_cache"] = True
+        return cached
+
+    audit_id = str(uuid.uuid4())[:8]
     steps: List[Dict[str, Any]] = []
     step_timings: Dict[str, float] = {}
     t0 = time.time()
@@ -81,7 +114,24 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
     # ------------------------------------------------------------------
     # Parse input (synchronous, fast)
     # ------------------------------------------------------------------
-    X, y, feature_names, protected_idx = _parse_dataset(input_text)
+    parsed = _parse_dataset(input_text)
+    text_mode = parsed is None
+    if text_mode:
+        X = y = feature_names = protected_idx = None
+        steps.append({
+            "step": 0, "name": "Input Validation",
+            "status": "complete",
+            "detail": "Plain-text mode detected. Fairness metrics use neutral defaults.",
+            "elapsed": 0,
+        })
+    else:
+        X, y, feature_names, protected_idx = parsed
+        steps.append({
+            "step": 0, "name": "Input Validation",
+            "status": "complete",
+            "detail": f"Dataset validated with {len(y)} rows and {X.shape[1]} features.",
+            "elapsed": 0,
+        })
 
     # ------------------------------------------------------------------
     # PARALLEL EXECUTION: Run independent checks concurrently
@@ -91,6 +141,9 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
     # Always run bias and truth in parallel
     async def run_bias():
         t = time.time()
+        if text_mode:
+            step_timings["bias"] = 0
+            return 0.5, {}, 0.0, 0.0
         result = await loop.run_in_executor(
             _executor, compute_bias_score, X, y, protected_idx, feature_names
         )
@@ -105,6 +158,9 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
 
     async def run_cluster():
         t = time.time()
+        if text_mode:
+            step_timings["cluster"] = 0
+            return 0.5, []
         result = await loop.run_in_executor(
             _executor, cluster_bias_analysis, X, y, protected_idx, n_clusters
         )
@@ -113,6 +169,9 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
 
     async def run_distribution():
         t = time.time()
+        if text_mode:
+            step_timings["distribution"] = 0
+            return 0.5, {"mean": 0.0, "std": 0.0, "skewness": 0.0, "kurtosis": 0.0}
         result = await loop.run_in_executor(_executor, compute_distribution_report, y)
         step_timings["distribution"] = round(time.time() - t, 3)
         return result
@@ -144,7 +203,10 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
     steps.append({
         "step": 1, "name": "Bias Analysis",
         "status": "complete",
-        "detail": f"Bias score={bias_score:.3f}, DP={dp:.3f}, EO={eo:.3f}",
+        "detail": (
+            "Not applicable for plain-text input; neutral default used."
+            if text_mode else f"Bias score={bias_score:.3f}, DP={dp:.3f}, EO={eo:.3f}"
+        ),
         "elapsed": step_timings.get("bias", 0),
     })
 
@@ -170,11 +232,14 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
         })
     else:
         steps.append({
-            "step": 3, "name": "Cluster Analysis",
-            "status": "complete",
-            "detail": f"Cluster fairness={cluster_fairness:.3f} across {n_clusters} clusters",
-            "elapsed": step_timings.get("cluster", 0),
-        })
+        "step": 3, "name": "Cluster Analysis",
+        "status": "complete",
+        "detail": (
+            "Not applicable for plain-text input; neutral default used."
+            if text_mode else f"Cluster fairness={cluster_fairness:.3f} across {n_clusters} clusters"
+        ),
+        "elapsed": step_timings.get("cluster", 0),
+    })
 
     # ------------------------------------------------------------------
     # Step 4: Distribution analysis
@@ -188,11 +253,14 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
         })
     else:
         steps.append({
-            "step": 4, "name": "Distribution Analysis",
-            "status": "complete",
-            "detail": f"Stability={dist_stability:.3f}, skew={dist_stats['skewness']:.3f}",
-            "elapsed": step_timings.get("distribution", 0),
-        })
+        "step": 4, "name": "Distribution Analysis",
+        "status": "complete",
+        "detail": (
+            "Not applicable for plain-text input; neutral default used."
+            if text_mode else f"Stability={dist_stability:.3f}, skew={dist_stats['skewness']:.3f}"
+        ),
+        "elapsed": step_timings.get("distribution", 0),
+    })
 
     # ------------------------------------------------------------------
     # Step 5: Compute trust score
@@ -281,9 +349,10 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
 
     elapsed = round(time.time() - t0, 3)
 
-    return {
+    result = {
         "audit_id": audit_id,
         "input_text": input_text[:500],
+        "audit_type": "text" if text_mode else "dataset",
         "depth": depth,
         "bias": {
             "bias_score": round(bias_score, 4),
@@ -310,4 +379,10 @@ async def run_audit(input_text: str, num_clusters: int = None, depth: str = "sta
         "reasoning_steps": steps,
         "elapsed_seconds": elapsed,
         "requires_human_review": requires_review,
+        "from_cache": False,
     }
+    cached_result = dict(result)
+    _AUDIT_CACHE[key] = cached_result
+    if len(_AUDIT_CACHE) > _CACHE_LIMIT:
+        _AUDIT_CACHE.pop(next(iter(_AUDIT_CACHE)))
+    return result

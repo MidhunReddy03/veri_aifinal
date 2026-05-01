@@ -4,6 +4,8 @@ export async function renderDashboard(rootEl, api) {
     const reviewStats = await api.get('/review/stats');
     const biasData = await api.get('/bias');
     const fairnessData = await api.get('/fairness');
+    const driftData = await api.get('/dashboard/fairness-drift');
+    const modelComparison = await api.get('/dashboard/model-comparison');
     const pendingReviews = reviewStats ? reviewStats.pending : 0;
 
     if (!stats) {
@@ -21,6 +23,33 @@ export async function renderDashboard(rootEl, api) {
             <div class="stat-card cyan"><div class="stat-label">Avg Trust Score</div><div class="stat-value cyan">${(stats.avg_trust * 100).toFixed(1)}%</div></div>
             <div class="stat-card amber" id="bias-stat-card"><div class="stat-label">Live ML Bias Score</div><div class="stat-value amber" id="live-bias-value">${biasData ? (biasData.bias_score * 100).toFixed(1) + '%' : 'N/A'}</div></div>
             <div class="stat-card ${pendingReviews > 0 ? 'amber' : 'green'}"><div class="stat-label">Pending Reviews</div><div class="stat-value ${pendingReviews > 0 ? 'amber' : 'green'}" id="pending-count">${pendingReviews}</div></div>
+        </div>
+
+        <div class="grid grid-2" style="margin-top:1.5rem;">
+            <div class="card glass-card">
+                <div class="card-header"><h3 class="card-title">📉 Fairness Drift Monitor</h3></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                    <span class="badge ${driftData && driftData.status === 'critical' ? 'badge-red' : (driftData && driftData.status === 'warning' ? 'badge-amber' : 'badge-cyan')}">${driftData ? driftData.status.toUpperCase() : 'N/A'}</span>
+                    <span style="font-size:0.85rem; color:var(--text-secondary);">Delta: <strong style="color:${driftData && Math.abs(driftData.drift_delta) > 0.05 ? 'var(--accent-red)' : 'var(--accent-emerald)'};">${driftData ? (driftData.drift_delta >= 0 ? '+' : '') + (driftData.drift_delta * 100).toFixed(2) + '%' : 'N/A'}</strong></span>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-secondary);">
+                    Tracks bias-score shift versus recent baseline to catch fairness regressions before release.
+                </div>
+            </div>
+            <div class="card glass-card">
+                <div class="card-header"><h3 class="card-title">🔀 Model Comparison (Same Dataset)</h3></div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">Dataset: ${modelComparison ? modelComparison.dataset : 'N/A'}</div>
+                <div style="display:flex; flex-direction:column; gap:0.45rem;">
+                    ${modelComparison && modelComparison.models ? modelComparison.models.map((m, idx) => `
+                        <div style="display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:0.5rem; padding:0.5rem; border-radius:6px; background:${idx === 0 ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)'};">
+                            <div style="font-size:0.78rem; color:${idx === 0 ? 'var(--accent-emerald)' : 'var(--text-primary)'};">${m.model}</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary);">Acc ${(m.accuracy * 100).toFixed(1)}%</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary);">DP ${(m.demographic_parity * 100).toFixed(1)}%</div>
+                            <div style="font-size:0.75rem; color:var(--text-secondary);">EO ${(m.equal_opportunity * 100).toFixed(1)}%</div>
+                        </div>
+                    `).join('') : '<div style="color:var(--text-muted);">Comparison unavailable.</div>'}
+                </div>
+            </div>
         </div>
 
         <!-- Trust Gauge + Scatter Plot Row -->
@@ -50,6 +79,7 @@ export async function renderDashboard(rootEl, api) {
                         <button class="method-btn active" data-method="linear">Linear</button>
                         <button class="method-btn" data-method="coefficient">Coeff</button>
                         <button class="method-btn" data-method="permutation">Perm</button>
+                        <button class="method-btn" data-method="lime">LIME</button>
                     </div>
                 </div>
                 <div id="shap-chart-container" style="min-height:200px;">

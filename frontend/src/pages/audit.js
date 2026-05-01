@@ -53,6 +53,28 @@ Example JSON: {"features": [[1,5,3,50],[0,2,4,30]], "labels": [1,0], "protected_
             </div>
         </div>
 
+        <div class="card glass-card" style="margin-bottom:1.5rem;">
+            <div class="card-header"><h3 class="card-title">Audit Real LLM Output</h3><span class="badge badge-cyan">Hallucination Detection</span></div>
+            <div class="grid grid-2">
+                <div class="form-group">
+                    <label class="form-label">Model Name</label>
+                    <input class="form-input" id="llm-model-name" value="gpt-4.1" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Prompt</label>
+                    <input class="form-input" id="llm-prompt" placeholder="Enter the prompt sent to the LLM" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">LLM Output</label>
+                <textarea class="form-textarea" id="llm-output" placeholder="Paste LLM response output here"></textarea>
+            </div>
+            <div style="display:flex; gap:0.6rem; justify-content:flex-end; flex-wrap:wrap;">
+                <button class="btn" id="btn-demo-scenario" style="background:var(--accent-purple); color:white;">▶ Run Demo Scenario</button>
+                <button class="btn btn-primary" id="run-llm-audit-btn">Run LLM Output Audit</button>
+            </div>
+        </div>
+
         <!-- Results Container -->
         <div id="audit-results"></div>
 
@@ -164,6 +186,40 @@ Example JSON: {"features": [[1,5,3,50],[0,2,4,30]], "labels": [1,0], "protected_
         }
     });
 
+    document.getElementById('run-llm-audit-btn').addEventListener('click', async () => {
+        const modelName = document.getElementById('llm-model-name').value.trim();
+        const prompt = document.getElementById('llm-prompt').value.trim();
+        const outputText = document.getElementById('llm-output').value.trim();
+        if (!modelName || !prompt || !outputText) {
+            alert('Please fill model name, prompt, and output.');
+            return;
+        }
+        const result = await runWithLiveSteps(
+            api,
+            '/audit-llm-output',
+            { model_name: modelName, prompt, output_text: outputText },
+            'Running LLM hallucination checks',
+        );
+        const resultsEl = document.getElementById('audit-results');
+        resultsEl.innerHTML = result ? buildFullResult(result) : '<div class="card" style="border-color:var(--accent-red);"><div style="padding:1rem; color:var(--accent-red);">LLM audit failed.</div></div>';
+    });
+
+    document.getElementById('btn-demo-scenario').addEventListener('click', async () => {
+        const prompt = 'Give me accurate facts about Paris and its founding.';
+        const output = 'Paris is the capital of France. Paris was founded in 1234 by aliens. The city is known for the Eiffel Tower.';
+        document.getElementById('llm-model-name').value = 'gpt-4.1';
+        document.getElementById('llm-prompt').value = prompt;
+        document.getElementById('llm-output').value = output;
+        const result = await runWithLiveSteps(
+            api,
+            '/audit-llm-output',
+            { model_name: 'gpt-4.1', prompt, output_text: output },
+            'Running one-click demo scenario',
+        );
+        const resultsEl = document.getElementById('audit-results');
+        resultsEl.innerHTML = result ? buildFullResult(result) : '<div class="card" style="border-color:var(--accent-red);"><div style="padding:1rem; color:var(--accent-red);">Demo scenario failed.</div></div>';
+    });
+
     // Static SHAP waterfall
     const features = [
         {name:'Credit Score (750)', val:'+0.15', pct:70, color:'var(--accent-green)'},
@@ -250,6 +306,12 @@ function buildFullResult(r) {
                 <span style="color:var(--text-muted);">Depth: <strong style="color:var(--accent-blue);">${r.depth}</strong></span>
                 <span style="color:${r.requires_human_review ? 'var(--accent-red)' : 'var(--accent-emerald)'};">${r.requires_human_review ? '🚨 Flagged for Review' : '✅ Auto-Approved'}</span>
             </div>
+            ${r.pre_correction_trust !== undefined ? `
+            <div style="margin-top:0.6rem; display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary);">
+                <span>Before correction: <strong>${(r.pre_correction_trust * 100).toFixed(1)}%</strong></span>
+                <span>After correction: <strong>${(r.trust_score * 100).toFixed(1)}%</strong></span>
+                <span style="color:${r.trust_delta >= 0 ? 'var(--accent-emerald)' : 'var(--accent-red)'};">Delta: <strong>${r.trust_delta >= 0 ? '+' : ''}${(r.trust_delta * 100).toFixed(1)}%</strong></span>
+            </div>` : ''}
         </div>
 
         <!-- 8-Step Pipeline -->
@@ -275,6 +337,39 @@ function buildFullResult(r) {
 
         <div style="text-align:center;"><a href="#/reports/${r.audit_id}" class="btn btn-primary" style="display:inline-flex;">View Full Report →</a></div>
     `;
+}
+
+async function runWithLiveSteps(api, endpoint, payload, label) {
+    const resultsEl = document.getElementById('audit-results');
+    const steps = ['Input validation', 'Claim extraction', 'Truth verification', 'Scoring', 'Auto-correction', 'Final review'];
+    let idx = 0;
+    resultsEl.innerHTML = renderLiveStepCard(label, steps, idx);
+    const timer = setInterval(() => {
+        idx = Math.min(idx + 1, steps.length - 1);
+        resultsEl.innerHTML = renderLiveStepCard(label, steps, idx);
+    }, 700);
+    try {
+        const result = await api.post(endpoint, payload);
+        clearInterval(timer);
+        return result;
+    } catch (_e) {
+        clearInterval(timer);
+        return null;
+    }
+}
+
+function renderLiveStepCard(label, steps, activeIdx) {
+    return `
+    <div class="card glass-card">
+        <h3 class="card-title" style="margin-bottom:0.75rem;">${label}</h3>
+        <div style="display:flex; flex-direction:column; gap:0.45rem;">
+            ${steps.map((s, i) => `
+                <div style="padding:0.55rem 0.7rem; border-radius:6px; border:1px solid ${i <= activeIdx ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}; background:${i <= activeIdx ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)'};">
+                    <span style="font-size:0.78rem; color:${i <= activeIdx ? 'var(--accent-emerald)' : 'var(--text-secondary)'};">${i <= activeIdx ? '✓' : '•'} ${s}</span>
+                </div>
+            `).join('')}
+        </div>
+    </div>`;
 }
 
 function scoreCard(label, value, color) {

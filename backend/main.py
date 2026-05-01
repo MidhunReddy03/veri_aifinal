@@ -9,9 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from .routes import audit, feedback, dashboard, bias_scan, truth_check, correction, report, upload, ml, settings, review
+from .routes import audit, feedback, dashboard, bias_scan, truth_check, correction, report, upload, ml, settings, review, llm_audit
 from .database import init_db
 from .seed_data import seed_database
+from .logging_config import configure_logging
+
+
+configure_logging()
 
 
 @asynccontextmanager
@@ -52,6 +56,7 @@ app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 app.include_router(ml.router, prefix="/api", tags=["ML"])
 app.include_router(settings.router, prefix="/api", tags=["Settings"])
 app.include_router(review.router, prefix="/api", tags=["Review"])
+app.include_router(llm_audit.router, prefix="/api", tags=["LLM Audit"])
 
 #  HEALTH CHECK   (correct position)
 @app.get("/health", include_in_schema=False)

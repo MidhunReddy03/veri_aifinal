@@ -4,7 +4,7 @@ parallel processing and depth control, persists the result, and
 returns the comprehensive audit report.
 Automatically queues low-trust results for human review.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from ..models import AuditRequest
 from ..services.reasoning_chain import run_audit
 from ..services.truth_service import invalidate_cache
@@ -19,11 +19,14 @@ async def audit(request: AuditRequest):
     # Invalidate truth cache to pick up any new KB entries
     invalidate_cache()
 
-    result = await run_audit(
-        input_text=request.input_text,
-        num_clusters=request.num_clusters,
-        depth=request.depth or "standard",
-    )
+    try:
+        result = await run_audit(
+            input_text=request.input_text,
+            num_clusters=request.num_clusters,
+            depth=request.depth or "standard",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     # Persist to SQLite
     await db.insert_audit(
@@ -33,6 +36,8 @@ async def audit(request: AuditRequest):
         truth_score=result["truth"]["truth_score"],
         trust_score=result["trust_score"],
         corrected=result.get("corrections", ""),
+        audit_type=result.get("audit_type", "dataset"),
+        report_json=result,
     )
 
     # If flagged for human review, add to review queue

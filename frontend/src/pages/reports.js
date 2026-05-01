@@ -110,9 +110,14 @@ async function renderSingleReport(rootEl, api, id) {
                     </div>
                     
                     <div style="margin-top:auto; padding-top:1.5rem;">
-                        <button class="btn btn-action" style="width:100%; padding:0.75rem; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid var(--border-glass); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; gap:0.5rem;">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Export PDF Report
-                        </button>
+                        <div style="display:flex; gap:0.5rem;">
+                            <a class="btn btn-action" href="/api/reports/${report.audit_id}/export?format=pdf" style="flex:1; padding:0.75rem; background:rgba(255,255,255,0.05); color:var(--text-primary); border:1px solid var(--border-glass); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; gap:0.5rem; text-decoration:none;">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Export PDF
+                            </a>
+                            <a class="btn btn-action" href="/api/reports/${report.audit_id}/export?format=json" style="flex:1; padding:0.75rem; background:rgba(59,130,246,0.08); color:var(--accent-cyan); border:1px solid rgba(59,130,246,0.25); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; gap:0.5rem; text-decoration:none;">
+                                JSON
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

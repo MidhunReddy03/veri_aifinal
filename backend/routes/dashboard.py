@@ -3,6 +3,7 @@ Returns aggregate statistics from the audit and feedback tables.
 """
 from fastapi import APIRouter
 from .. import database as db
+from ..services.model_compare_service import compare_models
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ async def recent():
     """Return the most recent audits."""
     rows = await db.list_audits(limit=20)
     return [
-        {"audit_id": r[0], "input": r[1][:100], "trust_score": r[2], "created_at": r[3]}
+        {"audit_id": r[0], "input": r[1][:100], "trust_score": r[2], "created_at": r[3], "audit_type": r[4] if len(r) > 4 else "dataset"}
         for r in rows
     ]
 
@@ -55,3 +56,39 @@ async def trends():
          "truth_score": r[3], "created_at": r[4]}
         for r in rows
     ]
+
+
+@router.get("/dashboard/fairness-drift")
+async def fairness_drift():
+    rows = await db.fetch_all(
+        "SELECT bias_score, truth_score, trust_score, created_at FROM audits "
+        "WHERE bias_score IS NOT NULL ORDER BY created_at DESC LIMIT 20"
+    )
+    if not rows:
+        return {"status": "insufficient_data", "points": [], "drift_delta": 0.0}
+
+    current = rows[0][0] or 0.0
+    historical = [r[0] for r in rows[1:6] if r[0] is not None]
+    baseline = (sum(historical) / len(historical)) if historical else current
+    drift_delta = round(float(current - baseline), 4)
+    status = "stable"
+    if abs(drift_delta) > 0.05:
+        status = "warning"
+    if abs(drift_delta) > 0.1:
+        status = "critical"
+
+    points = [
+        {
+            "bias_score": r[0],
+            "truth_score": r[1],
+            "trust_score": r[2],
+            "created_at": r[3],
+        }
+        for r in rows
+    ]
+    return {"status": status, "drift_delta": drift_delta, "points": points}
+
+
+@router.get("/dashboard/model-comparison")
+async def model_comparison():
+    return compare_models()

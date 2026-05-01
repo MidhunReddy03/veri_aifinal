@@ -7,4 +7,7 @@ python-multipart
 aiosqlite
 faiss-cpu
 pandas
-shap
+reportlab
+pytest
+lime; python_version < "3.13"
+shap; python_version < "3.13"

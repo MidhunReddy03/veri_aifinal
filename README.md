@@ -10,6 +10,9 @@ VeriAI is a comprehensive, production-ready AI governance platform designed to d
 4. **Auto-Correction Engine**: Automatically adjust weights for biased features and replace unverified claims with factual citations.
 5. **Human Feedback Loop**: Collect human assessments on audits to recalibrate the overall Trust Score weighting system automatically.
 6. **Premium Dashboard**: Dark-themed, glassmorphism UI with animated gauges, interactive charts, and a real-time audit pipeline visualizer.
+7. **LLM Output Auditing**: Dedicated endpoint for prompt/output auditing with claim-level hallucination detection and trust delta after auto-correction.
+8. **Compliance Export**: Download report artifacts in JSON and PDF with citations, reasoning steps, and reviewer trail.
+9. **Portability-safe Explainability**: SHAP-first with automatic LIME/coefficient fallback for environments where SHAP wheels are unavailable.
 
 ## Architecture
 
@@ -56,3 +59,10 @@ Access the dashboard at `http://localhost:8000`.
 Once the server is running, the Swagger UI documentation is available at:
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
+
+## New API Additions
+
+- `POST /api/audit-llm-output` — audits prompt + LLM output for hallucinations.
+- `GET /api/reports/{audit_id}/export?format=json|pdf` — compliance artifact export.
+- `GET /api/dashboard/fairness-drift` — fairness drift signal over recent audits.
+- `GET /api/dashboard/model-comparison` — model-vs-model fairness/accuracy comparison on same dataset.
